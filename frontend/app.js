@@ -1,4 +1,4 @@
-const API = location.origin;// + '/api';
+const API = location.origin; // Ajusta según tu deploy
 const app = document.getElementById('app');
 
 function getToken() { return localStorage.getItem('token'); }
@@ -13,18 +13,35 @@ function showLogin() {
     <button id="loginBtn">Login</button>
     <p>¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a></p>
   `;
+
   document.getElementById('loginBtn').onclick = async () => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    const res = await fetch(API + '/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (data.token) { setToken(data.token); loadDashboard(); }
-    else alert(data.error || 'Error login');
+
+    try {
+      const res = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      console.log('Status:', res.status, res.statusText);
+      const data = await res.json();
+      console.log('Response:', data);
+
+      if (res.ok && data.token) {
+        setToken(data.token);
+        loadDashboard();
+      } else {
+        alert(data.message || 'Error en login');
+      }
+
+    } catch (err) {
+      console.error('Fetch error:', err);
+      alert('Error de conexión con el servidor');
+    }
   };
+
   document.getElementById('showRegister').onclick = showRegister;
 }
 
@@ -42,45 +59,72 @@ function showRegister() {
     <button id="registerBtn">Registrar</button>
     <p>¿Ya tienes cuenta? <a href="#" id="showLogin">Login</a></p>
   `;
+
   document.getElementById('registerBtn').onclick = async () => {
     const name = document.getElementById('name').value;
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     const role = document.getElementById('role').value;
 
-    const res = await fetch(API + '/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role })
-    });
-    const data = await res.json();
-    if (data.token) { setToken(data.token); loadDashboard(); }
-    else alert(data.error || 'Error en registro');
+    try {
+      const res = await fetch(API + '/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role })
+      });
+
+      console.log('Status:', res.status, res.statusText);
+      const data = await res.json();
+      console.log('Response:', data);
+
+      if (res.ok && data.token) {
+        setToken(data.token);
+        loadDashboard();
+      } else {
+        alert(data.message || 'Error en registro');
+      }
+
+    } catch (err) {
+      console.error('Fetch error:', err);
+      alert('Error de conexión con el servidor');
+    }
   };
+
   document.getElementById('showLogin').onclick = showLogin;
 }
 
 // ====== Dashboard ======
 async function loadDashboard() {
-  const res = await fetch(API + '/documents', { headers: { Authorization: 'Bearer ' + getToken() } });
-  const data = await res.json();
-
-  app.innerHTML = `<h1>Dashboard</h1><button id="logoutBtn">Logout</button><div id="content"></div>`;
-  document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('token'); showLogin(); };
-  const content = document.getElementById('content');
-
-  if (data.professors) {
-    // Vista director
-    data.professors.forEach(p => {
-      const div = document.createElement('div');
-      div.innerHTML = `<span class="folder">${p.name}</span>`;
-      div.onclick = () => { showProfessorDocs(p); };
-      content.appendChild(div);
+  try {
+    const res = await fetch(API + '/documents', {
+      headers: { Authorization: 'Bearer ' + getToken() }
     });
-  } else {
-    // Vista profesor
-    showDocs(content, data.documents);
-    showUploadForm(content);
+
+    const data = await res.json();
+    console.log('Dashboard data:', data);
+
+    app.innerHTML = `<h1>Dashboard</h1><button id="logoutBtn">Logout</button><div id="content"></div>`;
+    document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('token'); showLogin(); };
+
+    const content = document.getElementById('content');
+
+    if (data.professors) {
+      // Vista director
+      data.professors.forEach(p => {
+        const div = document.createElement('div');
+        div.innerHTML = `<span class="folder">${p.name}</span>`;
+        div.onclick = () => { showProfessorDocs(p); };
+        content.appendChild(div);
+      });
+    } else {
+      // Vista profesor
+      showDocs(content, data.documents);
+      showUploadForm(content);
+    }
+
+  } catch (err) {
+    console.error('Error loading dashboard:', err);
+    alert('Error cargando dashboard');
   }
 }
 
@@ -115,20 +159,31 @@ function showUploadForm(container) {
     e.preventDefault();
     const file = document.getElementById('fileInput').files[0];
     if (!file) return alert('Selecciona un archivo');
+
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch(API + '/documents/upload', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + getToken() },
-      body: fd
-    });
-    const data = await res.json();
-    if (data.success) { alert('Archivo subido'); loadDashboard(); }
-    else alert(data.error || 'Error al subir archivo');
+
+    try {
+      const res = await fetch(API + '/documents/upload', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + getToken() },
+        body: fd
+      });
+
+      const data = await res.json();
+      console.log('Upload response:', data);
+
+      if (data.success) { alert('Archivo subido'); loadDashboard(); }
+      else alert(data.error || 'Error al subir archivo');
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Error al subir archivo');
+    }
   };
+
   container.appendChild(form);
 }
 
 // ====== Inicialización ======
 if (getToken()) loadDashboard(); else showLogin();
-
