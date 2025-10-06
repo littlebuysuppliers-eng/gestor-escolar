@@ -1,4 +1,4 @@
-const API = location.origin; // Ajusta según tu deploy
+const API = location.origin + '/api'; // Ajusta según tu deploy
 const app = document.getElementById('app');
 
 function getToken() { return localStorage.getItem('token'); }
@@ -187,3 +187,4 @@ function showUploadForm(container) {
 
 // ====== Inicialización ======
 if (getToken()) loadDashboard(); else showLogin();
+
