@@ -1,4 +1,6 @@
-const API = location.origin + '/api';
+console.log("✅ app.js cargado correctamente");
+document.getElementById('app').innerHTML = "<h2>Frontend funcionando ✅</h2>";
+/*const API = location.origin + '/api';
 const app = document.getElementById('app');
 
 function getToken(){ return localStorage.getItem('token'); }
@@ -39,4 +41,5 @@ async function loadDashboard(){
   }
 }
 
-function
+
+function*/
