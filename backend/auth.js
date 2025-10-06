@@ -1,30 +1,45 @@
-
+const express = require('express');
+const router = express.Router();
+const { User } = require('../models');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { User } = require('./models');
-const jwtSecret = process.env.JWT_SECRET || 'secret';
+const fs = require('fs');
+const path = require('path');
 
-function generateToken(user) {
-  return jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: '7d' });
-}
+// ----- LOGIN -----
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  const user = await User.findOne({ where: { email } });
+  if (!user) return res.status(401).json({ message: 'Usuario no encontrado' });
 
-async function authMiddleware(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ message: 'No token' });
-  const token = auth.split(' ')[1];
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return res.status(401).json({ message: 'Contraseña incorrecta' });
+
+  const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '8h' });
+  res.json({ token });
+});
+
+// ----- REGISTER (nuevo usuario) -----
+router.post('/register', async (req, res) => {
   try {
-    const data = jwt.verify(token, jwtSecret);
-    const user = await User.findByPk(data.id);
-    if (!user) return res.status(401).json({ message: 'Invalid user' });
-    req.user = user;
-    next();
-  } catch (err) { return res.status(401).json({ message: 'Invalid token' }); }
-}
+    const { name, email, password } = req.body;
 
-function roleRequired(roles = []) {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
-    next();
-  };
-}
+    // Verificar si ya existe
+    const exists = await User.findOne({ where: { email } });
+    if (exists) return res.status(400).json({ message: 'Email ya registrado' });
 
-module.exports = { generateToken, authMiddleware, roleRequired };
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, passwordHash: hash, role: 'profesor' });
+
+    // Crear carpeta del profesor para uploads
+    const uploadDir = path.join(__dirname, '../uploads', `${user.id}`);
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+    res.status(201).json({ message: 'Usuario registrado correctamente', user: { id: user.id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error en el registro' });
+  }
+});
+
+module.exports = router;
