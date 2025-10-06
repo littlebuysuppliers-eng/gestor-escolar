@@ -1,29 +1,26 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('./models'); // Ajusta la ruta si es necesario
-const SECRET = process.env.JWT_SECRET || 'mi_secreto_super_seguro';
+const { User } = require('./models');
+const jwtSecret = process.env.JWT_SECRET || 'secret';
 
-// Generar token JWT
 function generateToken(user) {
-  return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    SECRET,
-    { expiresIn: '1h' }
-  );
+  return jwt.sign({ id: user.id, role: user.role }, jwtSecret, { expiresIn: '7d' });
 }
 
-// Middleware para proteger rutas
 async function authMiddleware(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
+  let token = null;
 
-  const token = authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Invalid token format' });
+  // Token desde headers
+  if (req.headers.authorization) token = req.headers.authorization.split(' ')[1];
+
+  // Token desde FormData (si es POST con multipart)
+  if (!token && req.body && req.body.token) token = req.body.token;
+
+  if (!token) return res.status(401).json({ message: 'No token' });
 
   try {
-    const payload = jwt.verify(token, SECRET);
-    const user = await User.findByPk(payload.id);
-    if (!user) return res.status(401).json({ message: 'User not found' });
-
+    const data = jwt.verify(token, jwtSecret);
+    const user = await User.findByPk(data.id);
+    if (!user) return res.status(401).json({ message: 'Invalid user' });
     req.user = user;
     next();
   } catch (err) {
@@ -31,16 +28,11 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-// Middleware para verificar roles
 function roleRequired(roles = []) {
   return (req, res, next) => {
-    const user = req.user;
-    if (!user || !roles.includes(user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
+    if (!roles.includes(req.user.role)) return res.status(403).json({ message: 'Forbidden' });
     next();
   };
 }
 
-// Exportar todo
 module.exports = { generateToken, authMiddleware, roleRequired };
