@@ -164,7 +164,7 @@ function showUploadForm(container) {
     fd.append('file', file);
 
     try {
-      const res = await fetch(API + '/backend/upload', {
+      const res = await fetch(API + '/upload', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + getToken() },
         body: fd
@@ -187,5 +187,6 @@ function showUploadForm(container) {
 
 // ====== Inicialización ======
 if (getToken()) loadDashboard(); else showLogin();
+
 
 
