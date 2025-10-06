@@ -8,12 +8,16 @@ function setToken(t) { localStorage.setItem('token', t); }
 // ----- LOGIN -----
 function showLogin() {
   app.innerHTML = `
-    <h1>Login</h1>
-    <input placeholder="Email" id="email"/><br/>
-    <input placeholder="Password" id="password" type="password"/><br/>
-    <button id="loginBtn">Login</button>
-    <p>¿No tienes cuenta? <a href="#" id="registerLink">Regístrate</a></p>
-  `;
+  <h1>Registro</h1>
+  <input placeholder="Nombre" id="name"/><br/>
+  <input placeholder="Email" id="email"/><br/>
+  <input placeholder="Password" id="password" type="password"/><br/>
+  <select id="role">
+    <option value="teacher">Profesor</option>
+    <option value="director">Director</option>
+  </select><br/>
+  <button id="registerBtn">Registrar</button>
+`;
 
   document.getElementById('loginBtn').onclick = async () => {
     const email = document.getElementById('email').value;
@@ -171,3 +175,4 @@ function showProfessorDocs(professor) {
 // ----- INICIO -----
 if (getToken()) loadDashboard();
 else showLogin();
+
