@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('./models'); // Asegúrate de apuntar al modelo correcto
+const { User } = require('./models'); // Ajusta la ruta si es necesario
 const SECRET = process.env.JWT_SECRET || 'mi_secreto_super_seguro';
 
 // Generar token JWT
@@ -31,5 +31,16 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-// Exportar correctamente
-module.exports = { generateToken, authMiddleware };
+// Middleware para verificar roles
+function roleRequired(roles = []) {
+  return (req, res, next) => {
+    const user = req.user;
+    if (!user || !roles.includes(user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    next();
+  };
+}
+
+// Exportar todo
+module.exports = { generateToken, authMiddleware, roleRequired };
