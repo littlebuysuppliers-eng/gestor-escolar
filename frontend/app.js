@@ -108,30 +108,49 @@ function showDocs(container, documents) {
   });
 }
 
-// ====== Formulario de subida ======
+// ====== Formulario de subida de documentos ======
 function showUploadForm(container) {
   const form = document.createElement('form');
-  form.innerHTML = `<input type="file" id="fileInput"/><button>Subir</button>`;
+  form.innerHTML = `
+    <input type="file" id="fileInput"/><button>Subir</button>
+  `;
+
   form.onsubmit = async e => {
     e.preventDefault();
+
     const file = document.getElementById('fileInput').files[0];
     if (!file) return alert('Selecciona un archivo');
+
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('title', file.name);
+
     try {
+      // Ruta corregida
       const res = await fetch(API + '/documents/upload', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + getToken() },
         body: fd
       });
+
       const data = await res.json();
-      if (res.ok) { alert('Archivo subido'); loadDashboard(); }
-      else alert(data.message || 'Error al subir archivo');
-    } catch (err) { console.error(err); alert('Error al subir archivo'); }
+      console.log('Upload response:', data);
+
+      if (res.ok) {
+        alert('Archivo subido correctamente');
+        loadDashboard();
+      } else {
+        alert(data.message || 'Error al subir archivo');
+      }
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Error al subir archivo');
+    }
   };
+
   container.appendChild(form);
 }
 
 // ====== Inicialización ======
 if (getToken()) loadDashboard(); else showLogin();
+
