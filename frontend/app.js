@@ -12,6 +12,7 @@ function showLogin() {
     <input placeholder="Email" id="email"/><br/>
     <input placeholder="Password" id="password" type="password"/><br/>
     <button id="loginBtn">Login</button>
+    <p>¿No tienes cuenta? <a href="#" id="registerLink">Regístrate</a></p>
   `;
 
   document.getElementById('loginBtn').onclick = async () => {
@@ -29,6 +30,48 @@ function showLogin() {
       setToken(data.token);
       loadDashboard();
     } else alert('Error login');
+  };
+
+  document.getElementById('registerLink').onclick = (e) => {
+    e.preventDefault();
+    showRegister();
+  };
+}
+
+// ----- REGISTRO -----
+function showRegister() {
+  app.innerHTML = `
+    <h1>Registro</h1>
+    <input placeholder="Nombre" id="name"/><br/>
+    <input placeholder="Email" id="email"/><br/>
+    <input placeholder="Password" id="password" type="password"/><br/>
+    <button id="registerBtn">Registrarse</button>
+    <p>¿Ya tienes cuenta? <a href="#" id="loginLink">Login</a></p>
+  `;
+
+  document.getElementById('registerBtn').onclick = async () => {
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    const res = await fetch(API + '/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    if (res.ok) {
+      alert('Registro exitoso. Ahora inicia sesión.');
+      showLogin();
+    } else {
+      const data = await res.json();
+      alert('Error: ' + (data.message || 'No se pudo registrar'));
+    }
+  };
+
+  document.getElementById('loginLink').onclick = (e) => {
+    e.preventDefault();
+    showLogin();
   };
 }
 
@@ -53,7 +96,6 @@ async function loadDashboard() {
   const content = document.getElementById('content');
 
   if (data.professors) {
-    // Director view: carpetas por profesor
     data.professors.forEach(p => {
       const div = document.createElement('div');
       div.className = 'folder';
@@ -62,7 +104,6 @@ async function loadDashboard() {
       content.appendChild(div);
     });
   } else {
-    // Teacher view: mostrar documentos y subir archivos
     showDocs(content, data.documents);
     showUploadForm(content);
   }
@@ -104,7 +145,7 @@ function showUploadForm(container) {
 
     if (res.ok) {
       document.getElementById('uploadStatus').innerText = 'Archivo subido correctamente';
-      loadDashboard(); // refrescar documentos
+      loadDashboard();
     } else {
       document.getElementById('uploadStatus').innerText = 'Error al subir';
     }
