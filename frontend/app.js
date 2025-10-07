@@ -1,149 +1,151 @@
-// app.js
+document.addEventListener("DOMContentLoaded", async () => {
+  const userName = localStorage.getItem("userName") || "Usuario";
+  const userRole = localStorage.getItem("role") || "profesor";
+  const token = localStorage.getItem("token");
 
-const apiUrl = "https://gestor-escolar-rvdh.onrender.com/api"; // tu backend en Render
-const token = localStorage.getItem("token");
-const userRole = localStorage.getItem("role");
-const userName = localStorage.getItem("userName");
+  const userSpan = document.getElementById("user-name");
+  if (userSpan) userSpan.textContent = userName;
 
-// Mostrar nombre del usuario en el header
-document.addEventListener("DOMContentLoaded", () => {
-  const userDisplay = document.getElementById("user-name");
-  if (userDisplay && userName) {
-    userDisplay.textContent = userName;
+  // Si no hay token, redirige al login
+  if (!token) {
+    alert("Tu sesión ha expirado. Inicia sesión nuevamente.");
+    window.location.href = "/login.html";
+    return;
   }
 
   if (userRole === "director") {
-    cargarProfesores();
+    await cargarProfesores(token);
   } else if (userRole === "profesor") {
-    cargarArchivosPropios();
+    configurarSubidaArchivos(token);
+    await cargarArchivosPropios(token);
   }
 });
 
-// ==========================
-// 🔹 Cargar lista de profesores
-// ==========================
-async function cargarProfesores() {
+// ======== FUNCIONES ========
+
+// 1️⃣ Mostrar lista de profesores (Director)
+async function cargarProfesores(token) {
+  const select = document.getElementById("profesorSelect");
+  const lista = document.getElementById("documentList");
+
   try {
-    const response = await fetch(`${apiUrl}/users/profesores`, {
+    const res = await fetch("/api/profesores", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    const profesores = await response.json();
+    const profesores = await res.json();
 
-    const select = document.getElementById("profesorSelect");
-    select.innerHTML = '<option value="">Seleccionar profesor</option>';
-
+    select.innerHTML = `<option value="">Selecciona un profesor</option>`;
     profesores.forEach((prof) => {
       const option = document.createElement("option");
-      option.value = prof.id;
+      option.value = prof._id;
       option.textContent = prof.name;
       select.appendChild(option);
     });
 
-    select.addEventListener("change", () => {
-      const profesorId = select.value;
-      if (profesorId) cargarArchivosPorProfesor(profesorId);
+    select.addEventListener("change", async () => {
+      const id = select.value;
+      lista.innerHTML = "";
+      if (id) await cargarArchivosProfesor(id, token);
     });
-  } catch (error) {
-    console.error("Error al cargar profesores:", error);
+  } catch (err) {
+    console.error("Error cargando profesores:", err);
+    select.innerHTML = `<option>Error al cargar profesores</option>`;
   }
 }
 
-// ==========================
-// 🔹 Cargar archivos del profesor seleccionado
-// ==========================
-async function cargarArchivosPorProfesor(profesorId) {
+// 2️⃣ Mostrar archivos de un profesor
+async function cargarArchivosProfesor(profesorId, token) {
+  const lista = document.getElementById("documentList");
+  lista.innerHTML = "<li>Cargando archivos...</li>";
+
   try {
-    const response = await fetch(`${apiUrl}/documents/profesor/${profesorId}`, {
+    const res = await fetch(`/api/documentos/${profesorId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    const documentos = await res.json();
 
-    if (!response.ok) throw new Error("No se pudieron obtener los archivos");
-    const archivos = await response.json();
-
-    const lista = document.getElementById("documentList");
-    lista.innerHTML = "";
-
-    if (archivos.length === 0) {
-      lista.innerHTML = "<p>No hay archivos para este profesor.</p>";
+    if (documentos.length === 0) {
+      lista.innerHTML = "<li>No hay archivos disponibles.</li>";
       return;
     }
 
-    archivos.forEach((doc) => {
+    lista.innerHTML = "";
+    documentos.forEach((doc) => {
       const li = document.createElement("li");
       li.innerHTML = `
-        <span>${doc.filename}</span>
-        <a href="${apiUrl}/documents/${doc.filename}" target="_blank" class="btn-ver">Ver</a>
+        <strong>${doc.nombre}</strong><br/>
+        <a href="${doc.url}" target="_blank">📂 Ver archivo</a>
       `;
       lista.appendChild(li);
     });
-  } catch (error) {
-    console.error("Error al cargar archivos del profesor:", error);
+  } catch (err) {
+    console.error("Error cargando archivos del profesor:", err);
+    lista.innerHTML = "<li>Error al obtener archivos.</li>";
   }
 }
 
-// ==========================
-// 🔹 Cargar archivos del profesor logueado
-// ==========================
-async function cargarArchivosPropios() {
+// 3️⃣ Cargar archivos propios del profesor
+async function cargarArchivosPropios(token) {
+  const lista = document.getElementById("documentList");
+  lista.innerHTML = "<li>Cargando tus archivos...</li>";
+
   try {
-    const response = await fetch(`${apiUrl}/documents/mios`, {
+    const res = await fetch("/api/documentos/mios", {
       headers: { Authorization: `Bearer ${token}` },
     });
+    const documentos = await res.json();
 
-    const archivos = await response.json();
-    const lista = document.getElementById("documentList");
-    lista.innerHTML = "";
-
-    if (archivos.length === 0) {
-      lista.innerHTML = "<p>No has subido ningún archivo.</p>";
+    if (documentos.length === 0) {
+      lista.innerHTML = "<li>No has subido ningún archivo.</li>";
       return;
     }
 
-    archivos.forEach((doc) => {
+    lista.innerHTML = "";
+    documentos.forEach((doc) => {
       const li = document.createElement("li");
       li.innerHTML = `
-        <span>${doc.filename}</span>
-        <a href="${apiUrl}/documents/${doc.filename}" target="_blank" class="btn-ver">Ver</a>
+        <strong>${doc.nombre}</strong><br/>
+        <a href="${doc.url}" target="_blank">📂 Ver archivo</a>
       `;
       lista.appendChild(li);
     });
-  } catch (error) {
-    console.error("Error al cargar tus archivos:", error);
+  } catch (err) {
+    console.error("Error cargando tus archivos:", err);
+    lista.innerHTML = "<li>Error al obtener tus archivos.</li>";
   }
 }
 
-// ==========================
-// 🔹 Subir archivo
-// ==========================
-const uploadForm = document.getElementById("uploadForm");
-if (uploadForm) {
-  uploadForm.addEventListener("submit", async (e) => {
+// 4️⃣ Subida de archivos del profesor
+function configurarSubidaArchivos(token) {
+  const form = document.getElementById("uploadForm");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const fileInput = document.getElementById("fileInput");
-    const file = fileInput.files[0];
-    if (!file) return alert("Selecciona un archivo antes de subirlo");
+    if (!fileInput.files.length) return alert("Selecciona un archivo.");
 
     const formData = new FormData();
-    formData.append("document", file);
+    formData.append("document", fileInput.files[0]);
 
     try {
-      const response = await fetch(`${apiUrl}/documents/upload`, {
+      const res = await fetch("/api/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
-      if (response.ok) {
-        alert("Archivo subido con éxito ✅");
+      if (res.ok) {
+        alert("Archivo subido correctamente.");
         fileInput.value = "";
-        if (userRole === "profesor") cargarArchivosPropios();
+        await cargarArchivosPropios(token);
       } else {
-        alert("Error al subir el archivo ❌");
+        alert("Error al subir archivo.");
       }
-    } catch (error) {
-      console.error("Error al subir:", error);
-      alert("Error de conexión con el servidor");
+    } catch (err) {
+      console.error(err);
+      alert("Error al subir archivo.");
     }
   });
 }
