@@ -1,193 +1,149 @@
-const API = location.origin + '/api';
-const app = document.getElementById('app');
+// app.js
 
-function getToken() { return localStorage.getItem('token'); }
-function setToken(t) { localStorage.setItem('token', t); }
+const apiUrl = "https://gestor-escolar-rvdh.onrender.com/api"; // tu backend en Render
+const token = localStorage.getItem("token");
+const userRole = localStorage.getItem("role");
+const userName = localStorage.getItem("userName");
 
-// ====== Login ======
-function showLogin() {
-  app.innerHTML = `
-    <h1>Login</h1>
-    <input placeholder="Email" id="email"/><br/>
-    <input placeholder="Password" id="password" type="password"/><br/>
-    <button id="loginBtn">Login</button>
-    <p>¿No tienes cuenta? <a href="#" id="showRegister">Regístrate</a></p>
-  `;
+// Mostrar nombre del usuario en el header
+document.addEventListener("DOMContentLoaded", () => {
+  const userDisplay = document.getElementById("user-name");
+  if (userDisplay && userName) {
+    userDisplay.textContent = userName;
+  }
 
-  document.getElementById('loginBtn').onclick = async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+  if (userRole === "director") {
+    cargarProfesores();
+  } else if (userRole === "profesor") {
+    cargarArchivosPropios();
+  }
+});
 
-    try {
-      const res = await fetch(API + '/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json();
-      if (res.ok && data.token) {
-        setToken(data.token);
-        loadDashboard();
-      } else {
-        alert(data.message || 'Error en login');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error de conexión con el servidor');
-    }
-  };
-
-  document.getElementById('showRegister').onclick = showRegister;
-}
-
-// ====== Registro ======
-function showRegister() {
-  app.innerHTML = `
-    <h1>Registro</h1>
-    <input placeholder="Nombre" id="name"/><br/>
-    <input placeholder="Email" id="email"/><br/>
-    <input placeholder="Password" id="password" type="password"/><br/>
-    <select id="role">
-      <option value="teacher">Profesor</option>
-      <option value="director">Director</option>
-    </select><br/>
-    <button id="registerBtn">Registrar</button>
-    <p>¿Ya tienes cuenta? <a href="#" id="showLogin">Login</a></p>
-  `;
-
-  document.getElementById('registerBtn').onclick = async () => {
-    const name = document.getElementById('name').value;
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const role = document.getElementById('role').value;
-
-    try {
-      const res = await fetch(API + '/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role })
-      });
-
-      const data = await res.json();
-      if (res.ok && data.token) {
-        setToken(data.token);
-        loadDashboard();
-      } else {
-        alert(data.message || 'Error en registro');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error de conexión con el servidor');
-    }
-  };
-
-  document.getElementById('showLogin').onclick = showLogin;
-}
-
-// ====== Dashboard ======
-async function loadDashboard() {
+// ==========================
+// 🔹 Cargar lista de profesores
+// ==========================
+async function cargarProfesores() {
   try {
-    const res = await fetch(API + '/documents', {
-      headers: { Authorization: 'Bearer ' + getToken() }
+    const response = await fetch(`${apiUrl}/users/profesores`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const profesores = await response.json();
+
+    const select = document.getElementById("profesorSelect");
+    select.innerHTML = '<option value="">Seleccionar profesor</option>';
+
+    profesores.forEach((prof) => {
+      const option = document.createElement("option");
+      option.value = prof.id;
+      option.textContent = prof.name;
+      select.appendChild(option);
     });
 
-    const data = await res.json();
+    select.addEventListener("change", () => {
+      const profesorId = select.value;
+      if (profesorId) cargarArchivosPorProfesor(profesorId);
+    });
+  } catch (error) {
+    console.error("Error al cargar profesores:", error);
+  }
+}
 
-    app.innerHTML = `<h1>Dashboard</h1>
-      <button id="logoutBtn">Logout</button>
-      <div id="content"></div>
-    `;
+// ==========================
+// 🔹 Cargar archivos del profesor seleccionado
+// ==========================
+async function cargarArchivosPorProfesor(profesorId) {
+  try {
+    const response = await fetch(`${apiUrl}/documents/profesor/${profesorId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    document.getElementById('logoutBtn').onclick = () => {
-      localStorage.removeItem('token');
-      showLogin();
-    };
+    if (!response.ok) throw new Error("No se pudieron obtener los archivos");
+    const archivos = await response.json();
 
-    const content = document.getElementById('content');
+    const lista = document.getElementById("documentList");
+    lista.innerHTML = "";
 
-    if (data.professors) {
-      // Vista director
-      data.professors.forEach(p => {
-        const div = document.createElement('div');
-        div.innerHTML = `<span class="folder">${p.name}</span>`;
-        div.onclick = () => { showProfessorDocs(p); };
-        content.appendChild(div);
-      });
-    } else {
-      // Vista profesor
-      showDocs(content, data.documents);
-      showUploadForm(content);
+    if (archivos.length === 0) {
+      lista.innerHTML = "<p>No hay archivos para este profesor.</p>";
+      return;
     }
 
-  } catch (err) {
-    console.error(err);
-    alert('Error cargando dashboard');
+    archivos.forEach((doc) => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <span>${doc.filename}</span>
+        <a href="${apiUrl}/documents/${doc.filename}" target="_blank" class="btn-ver">Ver</a>
+      `;
+      lista.appendChild(li);
+    });
+  } catch (error) {
+    console.error("Error al cargar archivos del profesor:", error);
   }
 }
 
-// ====== Mostrar documentos de un profesor ======
-function showProfessorDocs(professor) {
-  const content = document.getElementById('content');
-  content.innerHTML = `<h2>${professor.name}</h2>
-    <button id="backBtn">Volver</button>
-    <div id="docs"></div>
-  `;
-  document.getElementById('backBtn').onclick = loadDashboard;
-  showDocs(document.getElementById('docs'), professor.documents);
-}
+// ==========================
+// 🔹 Cargar archivos del profesor logueado
+// ==========================
+async function cargarArchivosPropios() {
+  try {
+    const response = await fetch(`${apiUrl}/documents/mios`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-// ====== Función para listar documentos ======
-function showDocs(container, documents) {
-  if (!documents || documents.length === 0) {
-    container.innerHTML = '<p>No hay documentos</p>';
-    return;
+    const archivos = await response.json();
+    const lista = document.getElementById("documentList");
+    lista.innerHTML = "";
+
+    if (archivos.length === 0) {
+      lista.innerHTML = "<p>No has subido ningún archivo.</p>";
+      return;
+    }
+
+    archivos.forEach((doc) => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <span>${doc.filename}</span>
+        <a href="${apiUrl}/documents/${doc.filename}" target="_blank" class="btn-ver">Ver</a>
+      `;
+      lista.appendChild(li);
+    });
+  } catch (error) {
+    console.error("Error al cargar tus archivos:", error);
   }
-  container.innerHTML = '';
-  documents.forEach(doc => {
-    const div = document.createElement('div');
-    div.innerHTML = `<a href="/uploads/${doc.filepath}" target="_blank">${doc.filename}</a>`;
-    container.appendChild(div);
-  });
 }
 
-// ====== Formulario de subida de documentos ======
-function showUploadForm(container) {
-  const form = document.createElement('form');
-  form.innerHTML = `
-    <input type="file" id="fileInput"/><button>Subir</button>
-  `;
-  form.onsubmit = async e => {
+// ==========================
+// 🔹 Subir archivo
+// ==========================
+const uploadForm = document.getElementById("uploadForm");
+if (uploadForm) {
+  uploadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const file = document.getElementById('fileInput').files[0];
-    if (!file) return alert('Selecciona un archivo');
 
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('title', file.name);
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    if (!file) return alert("Selecciona un archivo antes de subirlo");
+
+    const formData = new FormData();
+    formData.append("document", file);
 
     try {
-      const res = await fetch(API + '/documents/upload', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + getToken() },
-        body: fd
+      const response = await fetch(`${apiUrl}/documents/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
 
-      const data = await res.json();
-      if (res.ok && data.document) {
-        alert('Archivo subido correctamente');
-        loadDashboard();
+      if (response.ok) {
+        alert("Archivo subido con éxito ✅");
+        fileInput.value = "";
+        if (userRole === "profesor") cargarArchivosPropios();
       } else {
-        alert(data.message || 'Error al subir archivo');
+        alert("Error al subir el archivo ❌");
       }
-    } catch (err) {
-      console.error(err);
-      alert('Error al subir archivo');
+    } catch (error) {
+      console.error("Error al subir:", error);
+      alert("Error de conexión con el servidor");
     }
-  };
-
-  container.appendChild(form);
+  });
 }
-
-// ====== Inicialización ======
-if (getToken()) loadDashboard(); else showLogin();
