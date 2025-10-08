@@ -1,6 +1,6 @@
 import express from 'express';
 import { getDB } from '../models.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -35,3 +35,4 @@ router.post('/login', (req, res) => {
 });
 
 export default router;
+
