@@ -1,68 +1,34 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const bcrypt = require('bcrypt');
-const { init, User } = require('./backend/models');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { initDB } from './backend/models.js';
+import authRoutes from './backend/routes/auth.js';
+import documentRoutes from './backend/routes/documents.js';
+import userRoutes from './backend/routes/users.js';
 
-const authRoutes = require('./backend/routes/auth');
-const docRoutes = require('./backend/routes/documents');
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// === Carpeta de uploads ===
-const uploadDir = path.join(__dirname, 'backend/uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-app.use('/uploads', express.static(uploadDir));
-
-// === Carpeta de assets (logo) ===
-app.use('/assets', express.static(path.join(__dirname, 'frontend/assets')));
-
-// === Rutas API ===
-app.use('/api/auth', authRoutes);
-app.use('/api/documents', docRoutes);
-
-// === Servir frontend ===
 app.use(express.static(path.join(__dirname, 'frontend')));
-app.get('*', (req, res) => {
+
+// Rutas del backend
+app.use('/api/auth', authRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/users', userRoutes);
+
+// Inicializa la base de datos
+initDB();
+
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
 
-const PORT = process.env.PORT || 4000;
-
-async function start() {
-  await init();
-
-  // Crear director demo
-  const existingDirector = await User.findOne({ where: { email: 'director@school.test' } });
-  if (!existingDirector) {
-    const hash = await bcrypt.hash('directorpass', 10);
-    await User.create({
-      name: 'Director Demo',
-      email: 'director@school.test',
-      passwordHash: hash,
-      role: 'director'
-    });
-    console.log('✅ Director demo creado: director@school.test / directorpass');
-  }
-
-  // Crear profesor demo
-  const existingTeacher = await User.findOne({ where: { email: 'teacher@school.test' } });
-  if (!existingTeacher) {
-    const hash = await bcrypt.hash('teacherpass', 10);
-    await User.create({
-      name: 'Profesor Demo',
-      email: 'teacher@school.test',
-      passwordHash: hash,
-      role: 'teacher'
-    });
-    console.log('✅ Profesor demo creado: teacher@school.test / teacherpass');
-  }
-
-  app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-}
-
-start();
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor ejecutándose en el puerto ${PORT}`));
