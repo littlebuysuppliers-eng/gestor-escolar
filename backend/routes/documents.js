@@ -2,97 +2,100 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { Document, Comment, User } = require('../models');
-const { authMiddleware, roleRequired } = require('../auth');
+const jwt = require('jsonwebtoken');
+const { Document, User } = require('../models');
 
 const router = express.Router();
 
-// Carpeta de uploads
+// =======================
+// Middleware de autenticación
+// =======================
+function auth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header) return res.status(401).json({ error: 'Token requerido' });
+
+  const token = header.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(403).json({ error: 'Token inválido' });
+  }
+}
+
+// =======================
+// Configuración de Multer (subidas)
+// =======================
 const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Configuración de Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+  filename: (req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, unique + path.extname(file.originalname));
+  },
 });
 const upload = multer({ storage });
 
-// ====== Subir documento (solo profesores) ======
-router.post('/upload', authMiddleware, roleRequired(['teacher']), upload.single('file'), async (req, res) => {
+// =======================
+// Subir archivo (profesor)
+// =======================
+router.post('/upload', auth, upload.single('file'), async (req, res) => {
   try {
-    const user = req.user;
-    const file = req.file;
-    const { title } = req.body;
-    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+    const { user } = req;
+    if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
 
+    const fileUrl = `/uploads/${req.file.filename}`;
     const doc = await Document.create({
-      title: title || file.originalname,
-      filename: file.originalname,
-      filepath: file.filename,
-      userId: user.id
+      name: req.file.originalname,
+      url: fileUrl,
+      userId: user.id,
     });
 
-    res.json({ success: true, document: doc });
+    res.json(doc);
   } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ error: 'Error uploading file' });
+    console.error(err);
+    res.status(500).json({ error: 'Error al subir el archivo' });
   }
 });
 
-// ====== Listar documentos ======
-router.get('/', authMiddleware, async (req, res) => {
-  const user = req.user;
+// =======================
+// Archivos del profesor logueado
+// =======================
+router.get('/me', auth, async (req, res) => {
   try {
-    if (user.role === 'teacher') {
-      const docs = await Document.findAll({ where: { userId: user.id }, include: [Comment] });
-      return res.json({ documents: docs });
-    } else if (user.role === 'director') {
-      const professors = await User.findAll({
-        where: { role: 'teacher' },
-        include: [{ model: Document, include: [Comment] }]
-      });
-      return res.json({ professors });
-    }
+    const files = await Document.findAll({ where: { userId: req.user.id } });
+    res.json(files);
   } catch (err) {
-    console.error('Fetch documents error:', err);
-    res.status(500).json({ error: 'Error fetching documents' });
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener archivos' });
   }
 });
 
-// ====== Descargar documento ======
-router.get('/download/:id', authMiddleware, async (req, res) => {
+// =======================
+// Archivos de un profesor (solo director)
+// =======================
+router.get('/:teacherId', auth, async (req, res) => {
   try {
-    const doc = await Document.findByPk(req.params.id);
-    if (!doc) return res.status(404).json({ message: 'Not found' });
-    if (req.user.role === 'teacher' && req.user.id !== doc.userId)
-      return res.status(403).json({ message: 'Forbidden' });
+    const { teacherId } = req.params;
+    const requester = await User.findByPk(req.user.id);
 
-    res.download(path.join(uploadDir, doc.filepath), doc.filename);
-  } catch (err) {
-    console.error('Download error:', err);
-    res.status(500).json({ error: 'Error downloading file' });
-  }
-});
-
-// ====== Comentar documento (solo directores) ======
-router.post('/:id/comment', authMiddleware, roleRequired(['director']), async (req, res) => {
-  try {
-    const doc = await Document.findByPk(req.params.id);
-    if (!doc) return res.status(404).json({ message: 'Not found' });
-
-    const { text, status } = req.body;
-    const comment = await Comment.create({ text, documentId: doc.id, userId: req.user.id });
-
-    if (status) {
-      doc.status = status;
-      await doc.save();
+    if (requester.role !== 'director') {
+      return res.status(403).json({ error: 'Solo el director puede ver archivos de otros usuarios' });
     }
 
-    res.json({ comment, document: doc });
+    const teacher = await User.findByPk(teacherId);
+    if (!teacher || teacher.role !== 'teacher') {
+      return res.status(404).json({ error: 'Profesor no encontrado' });
+    }
+
+    const files = await Document.findAll({ where: { userId: teacherId } });
+    res.json(files);
   } catch (err) {
-    console.error('Comment error:', err);
-    res.status(500).json({ error: 'Error commenting document' });
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener archivos del profesor' });
   }
 });
 
