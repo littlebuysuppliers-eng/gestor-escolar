@@ -2,69 +2,43 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const jwt = require('jsonwebtoken');
-const { Document, User } = require('../models');
-
 const router = express.Router();
+const { Document } = require('../models');
+const { authMiddleware } = require('../auth');
 
-// =======================
-// Middleware de autenticación
-// =======================
-function auth(req, res, next) {
-  const header = req.headers.authorization;
-  if (!header) return res.status(401).json({ error: 'Token requerido' });
-
-  const token = header.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-    req.user = decoded;
-    next();
-  } catch {
-    return res.status(403).json({ error: 'Token inválido' });
-  }
-}
-
-// =======================
-// Configuración de Multer (subidas)
-// =======================
+// === Configurar carpeta de uploads ===
 const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
+// === Configurar Multer ===
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
+  destination: uploadDir,
   filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname));
-  },
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
 const upload = multer({ storage });
 
-// =======================
-// Subir archivo (profesor)
-// =======================
-router.post('/upload', auth, upload.single('file'), async (req, res) => {
+// === Subir archivo (profesor) ===
+router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
-    const { user } = req;
-    if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
+    if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
 
-    const fileUrl = `/uploads/${req.file.filename}`;
-    const doc = await Document.create({
+    const file = await Document.create({
       name: req.file.originalname,
-      url: fileUrl,
-      userId: user.id,
+      url: `/uploads/${req.file.filename}`,
+      userId: req.user.id
     });
 
-    res.json(doc);
+    res.json(file);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al subir el archivo' });
+    console.error('Error al subir archivo:', err);
+    res.status(500).json({ error: 'Error al subir archivo' });
   }
 });
 
-// =======================
-// Archivos del profesor logueado
-// =======================
-router.get('/me', auth, async (req, res) => {
+// === Obtener archivos del profesor autenticado ===
+router.get('/me', authMiddleware, async (req, res) => {
   try {
     const files = await Document.findAll({ where: { userId: req.user.id } });
     res.json(files);
@@ -74,24 +48,14 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// =======================
-// Archivos de un profesor (solo director)
-// =======================
-router.get('/:teacherId', auth, async (req, res) => {
+// === Obtener archivos de un profesor (solo director) ===
+router.get('/:userId', authMiddleware, async (req, res) => {
   try {
-    const { teacherId } = req.params;
-    const requester = await User.findByPk(req.user.id);
-
-    if (requester.role !== 'director') {
-      return res.status(403).json({ error: 'Solo el director puede ver archivos de otros usuarios' });
+    if (req.user.role !== 'director') {
+      return res.status(403).json({ error: 'Acceso denegado' });
     }
 
-    const teacher = await User.findByPk(teacherId);
-    if (!teacher || teacher.role !== 'teacher') {
-      return res.status(404).json({ error: 'Profesor no encontrado' });
-    }
-
-    const files = await Document.findAll({ where: { userId: teacherId } });
+    const files = await Document.findAll({ where: { userId: req.params.userId } });
     res.json(files);
   } catch (err) {
     console.error(err);
