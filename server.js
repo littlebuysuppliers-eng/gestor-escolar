@@ -3,25 +3,26 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcrypt');
 const { init, User } = require('./backend/models');
+
 const authRoutes = require('./backend/routes/auth');
 const docRoutes = require('./backend/routes/documents');
-const bcrypt = require('bcrypt');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Carpeta de uploads
+// === Carpeta de uploads ===
 const uploadDir = path.join(__dirname, 'backend/uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 app.use('/uploads', express.static(uploadDir));
 
-// Rutas API
+// === Rutas API ===
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', docRoutes);
 
-// Servir frontend
+// === Servir frontend ===
 app.use(express.static(path.join(__dirname, 'frontend')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
@@ -32,9 +33,9 @@ const PORT = process.env.PORT || 4000;
 async function start() {
   await init();
 
-  // Crear director demo
-  const d = await User.findOne({ where: { role: 'director' } });
-  if (!d) {
+  // Crear director demo (si no existe)
+  const existingDirector = await User.findOne({ where: { email: 'director@school.test' } });
+  if (!existingDirector) {
     const hash = await bcrypt.hash('directorpass', 10);
     await User.create({
       name: 'Director Demo',
@@ -42,12 +43,12 @@ async function start() {
       passwordHash: hash,
       role: 'director'
     });
-    console.log('✅ Director creado: director@school.test / directorpass');
+    console.log('✅ Director demo creado: director@school.test / directorpass');
   }
 
-  // Crear profesor demo
-  const t = await User.findOne({ where: { role: 'teacher' } });
-  if (!t) {
+  // Crear profesor demo (si no existe)
+  const existingTeacher = await User.findOne({ where: { email: 'teacher@school.test' } });
+  if (!existingTeacher) {
     const hash = await bcrypt.hash('teacherpass', 10);
     await User.create({
       name: 'Profesor Demo',
@@ -55,7 +56,7 @@ async function start() {
       passwordHash: hash,
       role: 'teacher'
     });
-    console.log('✅ Profesor creado: teacher@school.test / teacherpass');
+    console.log('✅ Profesor demo creado: teacher@school.test / teacherpass');
   }
 
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
