@@ -1,16 +1,20 @@
-// backend/routes/users.js
-const express = require("express");
-const { all } = require("../models");
+import express from 'express';
+import { getDB } from '../models.js';
+
 const router = express.Router();
 
-router.get("/professors", async (req, res) => {
-  try {
-    const rows = await all(`SELECT id, firstName, lastP, lastM, email, role, grade, groupName, driveFolderId FROM users WHERE role = 'professor' ORDER BY grade, groupName, firstName`);
-    res.json({ professors: rows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error al obtener profesores" });
-  }
+// Obtener usuarios organizados por grado y grupo
+router.get('/', (req, res) => {
+  const db = getDB();
+  db.all(
+    `SELECT * FROM users ORDER BY grado ASC, grupo ASC, apellido_paterno ASC`,
+    [],
+    (err, rows) => {
+      db.close();
+      if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
+      res.json(rows);
+    }
+  );
 });
 
-module.exports = router;
+export default router;
