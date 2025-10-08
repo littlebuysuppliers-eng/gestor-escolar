@@ -1,173 +1,260 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const token = localStorage.getItem("token");
-  const role = localStorage.getItem("role");
-  const userName = localStorage.getItem("userName");
+const API_URL = '/api';
+const app = document.getElementById('app');
 
-  if (!token) {
-    window.location.href = "index.html";
-    return;
-  }
+let currentUser = null;
+let selectedTeacher = null;
 
-  document.getElementById("userName").textContent = userName || "Usuario";
-
-  if (role === "director") {
-    mostrarVistaDirector(token);
-  } else if (role === "teacher") {
-    mostrarVistaProfesor(token);
-  }
-});
-
-// ========================
-// VISTA DIRECTOR
-// ========================
-async function mostrarVistaDirector(token) {
-  const contenedor = document.getElementById("mainContent");
-  contenedor.innerHTML = `
-    <h2>Profesores</h2>
-    <div id="profesoresContainer" class="profesores-grid"></div>
-    <div id="archivosProfesor" class="archivos-lista"></div>
-  `;
-
-  try {
-    const res = await fetch("/api/auth/teachers", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const profesores = await res.json();
-
-    const cont = document.getElementById("profesoresContainer");
-    cont.innerHTML = "";
-
-    profesores.forEach((prof) => {
-      const card = document.createElement("div");
-      card.classList.add("card");
-      card.innerHTML = `
-        <div class="card-header">👨‍🏫 ${prof.name}</div>
-        <div class="card-body">
-          <p>${prof.email}</p>
-          <button class="btn-ver" data-id="${prof.id}">Ver archivos</button>
-        </div>
-      `;
-      cont.appendChild(card);
-    });
-
-    document.querySelectorAll(".btn-ver").forEach((btn) =>
-      btn.addEventListener("click", (e) => {
-        const id = e.target.dataset.id;
-        cargarArchivosProfesor(id, token);
-      })
-    );
-  } catch (err) {
-    console.error("Error al cargar profesores:", err);
-  }
-}
-
-// ========================
-// VISTA PROFESOR
-// ========================
-function mostrarVistaProfesor(token) {
-  const contenedor = document.getElementById("mainContent");
-  contenedor.innerHTML = `
-    <div class="upload-section">
-      <h2>Subir archivo</h2>
-      <form id="uploadForm" class="upload-form">
-        <input type="file" id="fileInput" required />
-        <button type="submit" class="btn-subir">Subir</button>
-      </form>
+// =======================
+// Pantalla de Login / Registro
+// =======================
+function renderLogin() {
+  app.innerHTML = `
+    <div class="login-container">
+      <div class="login-card">
+        <h1 class="login-title">Gestor Escolar</h1>
+        <input type="email" id="email" placeholder="Correo electrónico">
+        <input type="password" id="password" placeholder="Contraseña">
+        <button id="loginBtn">Iniciar sesión</button>
+        <p class="toggle-link">¿No tienes cuenta? <a id="goRegister">Regístrate</a></p>
+      </div>
     </div>
-    <h2>Mis archivos</h2>
-    <div id="documentList" class="archivos-lista"></div>
   `;
 
-  configurarSubidaArchivos(token);
-  cargarMisArchivos(token);
+  document.getElementById('loginBtn').onclick = handleLogin;
+  document.getElementById('goRegister').onclick = renderRegister;
 }
 
-// ========================
-// FUNCIONES DE ARCHIVOS
-// ========================
-function configurarSubidaArchivos(token) {
-  const form = document.getElementById("uploadForm");
-  const fileInput = document.getElementById("fileInput");
+function renderRegister() {
+  app.innerHTML = `
+    <div class="login-container">
+      <div class="login-card">
+        <h1 class="login-title">Registro</h1>
+        <input type="text" id="name" placeholder="Nombre completo">
+        <input type="email" id="email" placeholder="Correo electrónico">
+        <input type="password" id="password" placeholder="Contraseña">
+        <select id="role">
+          <option value="teacher">Profesor</option>
+        </select>
+        <button id="registerBtn">Registrar</button>
+        <p class="toggle-link">¿Ya tienes cuenta? <a id="goLogin">Inicia sesión</a></p>
+      </div>
+    </div>
+  `;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  document.getElementById('registerBtn').onclick = handleRegister;
+  document.getElementById('goLogin').onclick = renderLogin;
+}
 
-    const formData = new FormData();
-    formData.append("document", fileInput.files[0]);
+// =======================
+// Funciones de autenticación
+// =======================
+async function handleLogin() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
+  if (!email || !password) return alert('Completa todos los campos');
 
-    try {
-      const res = await fetch("/api/documents/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
 
-      if (!res.ok) throw new Error("Error al subir el archivo");
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || 'Error al iniciar sesión');
 
-      alert("✅ Archivo subido correctamente");
-      fileInput.value = "";
-      cargarMisArchivos(token);
-    } catch (err) {
-      alert("❌ Error al subir el archivo");
-      console.error(err);
-    }
+  localStorage.setItem('token', data.token);
+  currentUser = data.user;
+  renderDashboard();
+}
+
+async function handleRegister() {
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const role = document.getElementById('role').value;
+
+  if (!name || !email || !password) return alert('Completa todos los campos');
+
+  const res = await fetch(`${API_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, role })
+  });
+
+  const data = await res.json();
+  if (!res.ok) return alert(data.error || 'Error al registrar usuario');
+
+  alert('✅ Registro exitoso. Ahora puedes iniciar sesión.');
+  renderLogin();
+}
+
+// =======================
+// Dashboard general
+// =======================
+function renderDashboard() {
+  if (currentUser.role === 'director') {
+    renderDirectorDashboard();
+  } else {
+    renderTeacherDashboard();
+  }
+}
+
+// =======================
+// Dashboard del Director
+// =======================
+async function renderDirectorDashboard() {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_URL}/auth/users`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const teachers = await res.json();
+
+  app.innerHTML = `
+    <header class="header">
+      <h2>👨‍🏫 Director: ${currentUser.name}</h2>
+      <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
+    </header>
+    <div class="teachers-list">
+      ${teachers
+        .filter(u => u.role === 'teacher')
+        .map(
+          t => `
+        <div class="teacher-card" data-id="${t.id}">
+          <div class="teacher-info">
+            <div class="avatar">${t.name.charAt(0)}</div>
+            <div>
+              <p class="teacher-name">${t.name}</p>
+              <p class="teacher-email">${t.email}</p>
+            </div>
+          </div>
+        </div>`
+        )
+        .join('')}
+    </div>
+    <div id="teacherFiles"></div>
+  `;
+
+  document.getElementById('logoutBtn').onclick = logout;
+  document.querySelectorAll('.teacher-card').forEach(card => {
+    card.onclick = () => {
+      const teacherId = card.dataset.id;
+      selectedTeacher = teacherId;
+      loadTeacherFiles(teacherId);
+    };
   });
 }
 
-async function cargarMisArchivos(token) {
-  const lista = document.getElementById("documentList");
-  lista.innerHTML = "<p>Cargando...</p>";
+async function loadTeacherFiles(teacherId) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_URL}/documents/${teacherId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const files = await res.json();
 
-  try {
-    const res = await fetch("/api/documents", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const documentos = await res.json();
-
-    if (documentos.length === 0) {
-      lista.innerHTML = "<p>No tienes archivos subidos.</p>";
-      return;
-    }
-
-    lista.innerHTML = "";
-    documentos.forEach((doc) => {
-      const div = document.createElement("div");
-      div.classList.add("archivo-card");
-      div.innerHTML = `
-        <strong>${doc.title}</strong><br>
-        <a href="${doc.filepath}" target="_blank">📄 Ver archivo</a>
-      `;
-      lista.appendChild(div);
-    });
-  } catch (err) {
-    console.error("Error al cargar archivos:", err);
-  }
-}
-
-async function cargarArchivosProfesor(id, token) {
-  const contenedor = document.getElementById("archivosProfesor");
-  contenedor.innerHTML = "<p>Cargando archivos...</p>";
-
-  try {
-    const res = await fetch(`/api/documents/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const documentos = await res.json();
-
-    contenedor.innerHTML = `
-      <h3>Archivos del profesor seleccionado</h3>
+  const container = document.getElementById('teacherFiles');
+  container.innerHTML = `
+    <h3 class="section-title">📁 Archivos del profesor</h3>
+    <div class="files-grid">
       ${
-        documentos.length === 0
-          ? "<p>No hay archivos disponibles.</p>"
-          : documentos
+        files.length
+          ? files
               .map(
-                (d) =>
-                  `<div class="archivo-card"><strong>${d.title}</strong><br><a href="${d.filepath}" target="_blank">📂 Ver archivo</a></div>`
+                f => `
+            <a class="file-item" href="${f.url}" target="_blank">${f.name}</a>
+          `
               )
-              .join("")
+              .join('')
+          : '<p class="no-files">No hay archivos</p>'
       }
-    `;
-  } catch (err) {
-    console.error("Error al cargar archivos del profesor:", err);
-  }
+    </div>
+  `;
 }
+
+// =======================
+// Dashboard del Profesor
+// =======================
+async function renderTeacherDashboard() {
+  app.innerHTML = `
+    <header class="header">
+      <h2>👨‍🏫 ${currentUser.name}</h2>
+      <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
+    </header>
+    <div class="upload-section">
+      <h3>Subir archivo</h3>
+      <input type="file" id="fileInput">
+      <button id="uploadBtn">Subir</button>
+    </div>
+    <div class="files-section">
+      <h3>Mis archivos</h3>
+      <div id="fileList"></div>
+    </div>
+  `;
+
+  document.getElementById('logoutBtn').onclick = logout;
+  document.getElementById('uploadBtn').onclick = uploadFile;
+  loadMyFiles();
+}
+
+async function loadMyFiles() {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${API_URL}/documents/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const files = await res.json();
+
+  const list = document.getElementById('fileList');
+  list.innerHTML = files.length
+    ? files.map(f => `<a href="${f.url}" target="_blank">${f.name}</a>`).join('<br>')
+    : '<p class="no-files">No hay archivos</p>';
+}
+
+async function uploadFile() {
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) return alert('Selecciona un archivo');
+
+  const token = localStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_URL}/documents/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return alert(data.error || 'Error al subir el archivo');
+  }
+
+  alert('✅ Archivo subido correctamente');
+  loadMyFiles();
+}
+
+// =======================
+// Cerrar sesión
+// =======================
+function logout() {
+  localStorage.removeItem('token');
+  currentUser = null;
+  renderLogin();
+}
+
+// =======================
+// Verificar sesión al iniciar
+// =======================
+async function checkSession() {
+  const token = localStorage.getItem('token');
+  if (!token) return renderLogin();
+
+  const res = await fetch(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) return renderLogin();
+
+  const data = await res.json();
+  currentUser = data;
+  renderDashboard();
+}
+
+checkSession();
