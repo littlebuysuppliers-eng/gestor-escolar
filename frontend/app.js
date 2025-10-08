@@ -9,6 +9,18 @@ let selectedTeacher = null;
 // =======================
 function renderLogin() {
   app.innerHTML = `
+
+  <div class="login-logo">
+  <div class="gear">
+    <div class="hex">
+      <div class="student"></div>
+      <div class="st11">ST11</div>
+      <div class="dgest">DGEST</div>
+    </div>
+  </div>
+  <div class="text-top">RESPETO, RESPONSABILIDAD Y HONESTIDAD</div>
+  <div class="text-bottom">TILZAPOTLA, MORELOS</div>
+</div>
     <div class="login-container">
       <div class="login-card">
         <h1 class="login-title">Gestor Escolar</h1>
@@ -258,3 +270,4 @@ async function checkSession() {
 }
 
 checkSession();
+
