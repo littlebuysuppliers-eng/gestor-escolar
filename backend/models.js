@@ -1,46 +1,64 @@
-const { Sequelize, DataTypes } = require('sequelize');
+// backend/models.js
+const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
+const dbPath = path.join(__dirname, "../database.sqlite");
 
-// === Inicializar base de datos SQLite ===
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: 'database.sqlite'
-});
+const db = new sqlite3.Database(dbPath);
 
-// === Modelo Usuario ===
-const User = sequelize.define('User', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  name: { type: DataTypes.STRING, allowNull: false },
-  email: { type: DataTypes.STRING, allowNull: false, unique: true },
-  passwordHash: { type: DataTypes.STRING, allowNull: false },
-  role: { type: DataTypes.ENUM('teacher','director'), allowNull: false }
-});
+// Inicializar tablas
+function init() {
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        firstName TEXT,
+        lastP TEXT,
+        lastM TEXT,
+        email TEXT UNIQUE,
+        password TEXT,
+        role TEXT DEFAULT 'professor',
+        grade INTEGER,
+        groupName TEXT,
+        driveFolderId TEXT
+      )`);
 
-// === Modelo Documento ===
-const Document = sequelize.define('Document', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  name: { type: DataTypes.STRING, allowNull: false },   // coincide con documents.js
-  url: { type: DataTypes.STRING, allowNull: false },    // coincide con documents.js
-  version: { type: DataTypes.INTEGER, defaultValue: 1 },
-  status: { type: DataTypes.ENUM('pending','reviewed','approved','rejected'), defaultValue: 'pending' }
-});
-
-// === Modelo Comentario ===
-const Comment = sequelize.define('Comment', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  text: { type: DataTypes.TEXT, allowNull: false }
-});
-
-// === Relaciones ===
-User.hasMany(Document, { foreignKey: 'userId' });
-Document.belongsTo(User, { foreignKey: 'userId' });
-
-Document.hasMany(Comment, { foreignKey: 'documentId' });
-Comment.belongsTo(Document, { foreignKey: 'documentId' });
-Comment.belongsTo(User, { foreignKey: 'userId' });
-
-// === Inicializar base de datos ===
-async function init() {
-  await sequelize.sync();
+      db.run(`CREATE TABLE IF NOT EXISTS documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        driveFileId TEXT,
+        driveDownloadLink TEXT,
+        userId INTEGER,
+        status TEXT DEFAULT 'Pendiente',
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(userId) REFERENCES users(id)
+      )`, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  });
 }
 
-module.exports = { sequelize, User, Document, Comment, init };
+// Helpers promisificados
+function run(sql, params = []) {
+  return new Promise((res, rej) => db.run(sql, params, function (err) {
+    if (err) return rej(err);
+    res(this);
+  }));
+}
+
+function get(sql, params = []) {
+  return new Promise((res, rej) => db.get(sql, params, (err, row) => {
+    if (err) return rej(err);
+    res(row);
+  }));
+}
+
+function all(sql, params = []) {
+  return new Promise((res, rej) => db.all(sql, params, (err, rows) => {
+    if (err) return rej(err);
+    res(rows);
+  }));
+}
+
+module.exports = { init, run, get, all };
