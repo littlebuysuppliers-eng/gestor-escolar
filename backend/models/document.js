@@ -1,19 +1,17 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("./index").sequelize;
+// backend/models/documents.js
+// Este archivo sirve como helper para queries relacionadas con documents.
+const db = require("../models");
 
-const Document = sequelize.define("Document", {
-  title: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  filepath: {
-    type: DataTypes.STRING, // Guardará el enlace de Google Drive
-    allowNull: false,
-  },
-  status: {
-    type: DataTypes.STRING,
-    defaultValue: "Pendiente",
-  },
-});
+async function createDocument({ title, driveFileId, driveDownloadLink, userId, status = "Pendiente" }) {
+  const res = await db.run(
+    `INSERT INTO documents (title, driveFileId, driveDownloadLink, userId, status) VALUES (?,?,?,?,?)`,
+    [title, driveFileId, driveDownloadLink, userId, status]
+  );
+  return { id: res.lastID, title, driveFileId, driveDownloadLink, userId, status };
+}
 
-module.exports = Document;
+async function getDocumentsByUser(userId) {
+  return await db.all(`SELECT * FROM documents WHERE userId = ? ORDER BY createdAt DESC`, [userId]);
+}
+
+module.exports = { createDocument, getDocumentsByUser };
