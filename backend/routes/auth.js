@@ -4,48 +4,78 @@ const router = express.Router();
 const { User } = require('../models');
 const { generateToken, authMiddleware } = require('../auth');
 
-// Registro
+// === Registro ===
 router.post('/register', async (req, res) => {
-  const { name, email, password, role } = req.body;
-  if (!['teacher', 'director'].includes(role))
-    return res.status(400).json({ message: 'Invalid role' });
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password)
+      return res.status(400).json({ error: 'Faltan datos' });
 
-  const hash = await bcrypt.hash(password, 10);
-  const user = await User.create({ name, email, passwordHash: hash, role });
+    if (!['teacher', 'director'].includes(role))
+      return res.status(400).json({ error: 'Rol inválido' });
 
-  res.json({
-    token: generateToken(user),
-    user: { id: user.id, name: user.name, email: user.email, role: user.role }
-  });
+    const existing = await User.findOne({ where: { email } });
+    if (existing) return res.status(400).json({ error: 'El correo ya está registrado' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, passwordHash: hash, role });
+
+    res.json({
+      token: generateToken(user),
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al registrar usuario' });
+  }
 });
 
-// Login
+// === Login ===
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ where: { email } });
-  if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
 
+    res.json({
+      token: generateToken(user),
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al iniciar sesión' });
+  }
+});
+
+// === Información del usuario autenticado ===
+router.get('/me', authMiddleware, async (req, res) => {
   res.json({
-    token: generateToken(user),
-    user: { id: user.id, name: user.name, email: user.email, role: user.role }
+    id: req.user.id,
+    name: req.user.name,
+    email: req.user.email,
+    role: req.user.role
   });
 });
 
-// Cambio de contraseña (protegida)
-router.post('/change-password', authMiddleware, async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-  const user = req.user;
+// === Obtener todos los usuarios (solo director) ===
+router.get('/users', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'director') {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
 
-  const ok = await bcrypt.compare(oldPassword, user.passwordHash);
-  if (!ok) return res.status(400).json({ message: 'Old password incorrect' });
+    const users = await User.findAll({
+      attributes: ['id', 'name', 'email', 'role']
+    });
 
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
-  await user.save();
-
-  res.json({ message: 'Password updated' });
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
 });
 
 module.exports = router;
