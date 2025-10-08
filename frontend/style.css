@@ -182,3 +182,101 @@ button:hover {
   color: #007bff;
   text-decoration: none;
 }
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 30px;
+  font-family: Arial, sans-serif;
+  color: #670000;
+}
+
+.text-top {
+  font-size: 12px;
+  margin-bottom: 5px;
+  letter-spacing: 1px;
+}
+
+.text-bottom {
+  font-size: 12px;
+  margin-top: 5px;
+  letter-spacing: 1px;
+}
+
+/* Engranaje */
+.gear {
+  display: inline-block;
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin-bottom: 10px;
+  background: repeating-linear-gradient(
+    90deg,
+    #670000,
+    #670000 5px,
+    #fff 5px,
+    #fff 10px
+  );
+  clip-path: polygon(
+    50% 0%,
+    61% 15%,
+    78% 15%,
+    85% 30%,
+    100% 50%,
+    85% 70%,
+    78% 85%,
+    61% 85%,
+    50% 100%,
+    39% 85%,
+    22% 85%,
+    15% 70%,
+    0% 50%,
+    15% 30%,
+    22% 15%,
+    39% 15%
+  );
+}
+
+/* Hexágono central */
+.hex {
+  position: absolute;
+  top: 15%;
+  left: 15%;
+  width: 70%;
+  height: 70%;
+  background: #fff;
+  clip-path: polygon(
+    25% 0%,
+    75% 0%,
+    100% 50%,
+    75% 100%,
+    25% 100%,
+    0% 50%
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* DGEST texto */
+.dgest {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+/* Figura estudiante */
+.student {
+  width: 20px;
+  height: 30px;
+  border-left: 4px solid #670000;
+  border-bottom: 4px solid #670000;
+  transform: rotate(-45deg);
+  margin-bottom: 5px;
+}
+
+/* ST11 texto */
+.st11 {
+  font-size: 14px;
+  font-weight: bold;
+}
