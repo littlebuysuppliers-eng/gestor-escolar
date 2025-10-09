@@ -1,29 +1,30 @@
-// server.js (en la raíz GestorEscolar/)
-require("dotenv").config();
-const express = require("express");
-const path = require("path");
-const { init } = require("./backend/models");
-const authRoutes = require("./backend/auth");
-const docsRoutes = require("./backend/routes/documents");
-const usersRoutes = require("./backend/routes/users");
-const { verifyToken } = require("./backend/middleware/authMiddleware");
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+import authRoutes from './backend/routes/auth.js';
+import documentsRoutes from './backend/routes/documents.js';
+import usersRoutes from './backend/routes/users.js';
+import { initDB } from './backend/initDB.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Middlewares
+app.use(cors());
+app.use(bodyParser.json());
+app.use('/uploads', express.static('backend/uploads'));
 
-// Rutas públicas
-app.use("/api/auth", authRoutes);
+// Inicializar DB
+initDB();
 
-// Rutas que requieren auth
-app.use("/api/documents", verifyToken, docsRoutes);
-app.use("/api/users", verifyToken, usersRoutes);
+// Rutas
+app.use('/auth', authRoutes);
+app.use('/documents', documentsRoutes);
+app.use('/users', usersRoutes);
 
-// Servir frontend estático
-app.use(express.static(path.join(__dirname, "frontend")));
-
-init().then(() => {
-  app.listen(PORT, () => console.log(`✅ Server en http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
