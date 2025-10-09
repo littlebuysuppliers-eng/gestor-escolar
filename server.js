@@ -1,64 +1,31 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const bcrypt = require('bcrypt');
-const { init, User } = require('./backend/models');
-
-const authRoutes = require('./backend/routes/auth');
-const docRoutes = require('./backend/routes/documents');
-const userRoutes = require('./backend/routes/users');
-
+const path = require('path');
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// === Middlewares ===
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// === Importar rutas ===
+const authRoutes = require('./backend/routes/auth');
+const usersRoutes = require('./backend/routes/users');
+const documentsRoutes = require('./backend/routes/documents');
 
 // === Rutas API ===
 app.use('/api/auth', authRoutes);
-app.use('/api/documents', docRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/documents', documentsRoutes);
 
-// === Servir frontend ===
-app.use(express.static('frontend'));
-app.get('*', (req, res) =>
-  res.sendFile(require('path').join(__dirname, 'frontend', 'index.html'))
-);
+// === Servir frontend en producción ===
+app.use(express.static(path.join(__dirname, 'frontend')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+});
 
-const PORT = process.env.PORT || 4000;
-
-async function start() {
-  await init();
-
-  // Director demo
-  const director = await User.findOne({ where: { email: 'director@school.test' } });
-  if (!director) {
-    const hash = await bcrypt.hash('directorpass', 10);
-    await User.create({
-      nombre: 'Director',
-      apellidoP: 'Demo',
-      apellidoM: '',
-      email: 'director@school.test',
-      passwordHash: hash,
-      role: 'director'
-    });
-    console.log('✅ Director demo creado');
-  }
-
-  // Profesor demo
-  const teacher = await User.findOne({ where: { email: 'teacher@school.test' } });
-  if (!teacher) {
-    const hash = await bcrypt.hash('teacherpass', 10);
-    await User.create({
-      nombre: 'Profesor',
-      apellidoP: 'Demo',
-      apellidoM: '',
-      email: 'teacher@school.test',
-      passwordHash: hash,
-      role: 'teacher'
-    });
-    console.log('✅ Profesor demo creado');
-  }
-
-  app.listen(PORT, () => console.log(`🚀 Server corriendo en puerto ${PORT}`));
-}
-
-start();
+// === Iniciar servidor ===
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+});
