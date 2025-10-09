@@ -6,6 +6,7 @@ const { init, User } = require('./backend/models');
 
 const authRoutes = require('./backend/routes/auth');
 const docRoutes = require('./backend/routes/documents');
+const userRoutes = require('./backend/routes/users');
 
 const app = express();
 app.use(cors());
@@ -14,10 +15,13 @@ app.use(express.json());
 // === Rutas API ===
 app.use('/api/auth', authRoutes);
 app.use('/api/documents', docRoutes);
+app.use('/api/users', userRoutes);
 
 // === Servir frontend ===
 app.use(express.static('frontend'));
-app.get('*', (req, res) => res.sendFile(require('path').join(__dirname, 'frontend', 'index.html')));
+app.get('*', (req, res) =>
+  res.sendFile(require('path').join(__dirname, 'frontend', 'index.html'))
+);
 
 const PORT = process.env.PORT || 4000;
 
@@ -31,7 +35,7 @@ async function start() {
     await User.create({
       nombre: 'Director',
       apellidoP: 'Demo',
-      apellidoM: 'Demo',   // <- Aquí se coloca un valor real
+      apellidoM: '',
       email: 'director@school.test',
       passwordHash: hash,
       role: 'director'
@@ -46,7 +50,7 @@ async function start() {
     await User.create({
       nombre: 'Profesor',
       apellidoP: 'Demo',
-      apellidoM: 'Demo',   // <- Aquí también
+      apellidoM: '',
       email: 'teacher@school.test',
       passwordHash: hash,
       role: 'teacher'
