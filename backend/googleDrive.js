@@ -62,3 +62,6 @@ export async function uploadFile(fileName, folderId, fileBuffer) {
     throw err;
   }
 }
+
+// Alias para mantener compatibilidad con tu import actual
+export { uploadFile as uploadToDrive };
