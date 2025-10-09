@@ -9,25 +9,25 @@ const { google } = require('googleapis');
 // === Cargar credenciales desde Secret File de Render ===
 const credPath = '/etc/secrets/GOOGLE_CREDENTIALS.json';
 if (!fs.existsSync(credPath)) {
-  console.error('❌ Archivo de credenciales no encontrado en /etc/secrets/GOOGLE_CREDENTIALS.json');
+  console.error('❌ Archivo de credenciales no encontrado');
   process.exit(1);
 }
 
 const credentials = JSON.parse(fs.readFileSync(credPath, 'utf8'));
 const auth = new google.auth.GoogleAuth({
   credentials,
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
+  scopes: ['https://www.googleapis.com/auth/drive'],
 });
 const drive = google.drive({ version: 'v3', auth });
+
+// ID de Shared Drive (obtenlo desde Google Drive)
+const SHARED_DRIVE_ID = process.env.GOOGLE_SHARED_DRIVE_ID;
 
 // === Multer en memoria ===
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// === ID de tu Shared Drive ===
-const SHARED_DRIVE_ID = process.env.GOOGLE_DRIVE_FOLDER_ID; // <- agregar en Render como variable de entorno
-
-// === Subir archivo a Google Drive (Shared Drive) ===
+// === Subir archivo a Shared Drive ===
 router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
@@ -39,23 +39,24 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       requestBody: {
         name: fileName,
         mimeType: req.file.mimetype,
-        parents: [SHARED_DRIVE_ID] // <- Shared Drive
+        parents: [SHARED_DRIVE_ID]
       },
       media: {
         mimeType: req.file.mimetype,
         body: Buffer.from(req.file.buffer)
       },
-      supportsAllDrives: true // obligatorio para Shared Drives
+      supportsAllDrives: true
     });
 
-    // Hacer el archivo público
+    const fileId = response.data.id;
+
     await drive.permissions.create({
-      fileId: response.data.id,
+      fileId,
       requestBody: { role: 'reader', type: 'anyone' },
       supportsAllDrives: true
     });
 
-    const fileUrl = `https://drive.google.com/uc?id=${response.data.id}&export=download`;
+    const fileUrl = `https://drive.google.com/uc?id=${fileId}&export=download`;
 
     const file = await Document.create({
       name: fileName,
@@ -65,12 +66,12 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 
     res.json(file);
   } catch (err) {
-    console.error('Error al subir archivo:', err.response?.data || err);
-    res.status(500).json({ error: 'Error al subir archivo', details: err.response?.data });
+    console.error('Error al subir archivo:', err.message || err);
+    res.status(500).json({ error: 'Error al subir archivo', details: err.errors || err });
   }
 });
 
-// === Listar archivos del profesor ===
+// === Listar archivos del usuario ===
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const files = await Document.findAll({ where: { userId: req.user.id } });
@@ -81,7 +82,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
-// === Listar archivos de un profesor (solo director) ===
+// === Listar archivos de un usuario (solo director) ===
 router.get('/:userId', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Acceso denegado' });
