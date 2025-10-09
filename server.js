@@ -31,7 +31,7 @@ async function start() {
     await User.create({
       nombre: 'Director',
       apellidoP: 'Demo',
-      apellidoM: '',
+      apellidoM: 'Demo',   // <- Aquí se coloca un valor real
       email: 'director@school.test',
       passwordHash: hash,
       role: 'director'
@@ -46,7 +46,7 @@ async function start() {
     await User.create({
       nombre: 'Profesor',
       apellidoP: 'Demo',
-      apellidoM: '',
+      apellidoM: 'Demo',   // <- Aquí también
       email: 'teacher@school.test',
       passwordHash: hash,
       role: 'teacher'
