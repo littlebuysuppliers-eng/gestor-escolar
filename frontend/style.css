@@ -1,1 +1,39 @@
-body{font-family:Arial,Helvetica,sans-serif;background:#f0f2f5;margin:0;padding:12px}#app{max-width:980px;margin:0 auto}h1{color:#222}form{background:#fff;padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}input,select{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #ddd}button{background:#1e88e5;color:#fff;padding:10px 14px;border-radius:8px;border:none;cursor:pointer}button.secondary{background:#eee;color:#333}.professor-item{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:10px;border-radius:8px;margin:8px 0;box-shadow:0 6px 18px rgba(0,0,0,0.04)}.file-item{background:#fff;padding:10px;border-radius:8px;margin:8px 0;display:flex;justify-content:space-between} .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
+  margin: 0;
+  padding: 0;
+}
+
+h2, h3 {
+  color: #333;
+}
+
+button {
+  padding: 6px 12px;
+  margin: 4px;
+  cursor: pointer;
+}
+
+#dashboard {
+  padding: 20px;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  background: #fff;
+  margin: 5px 0;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+li:hover {
+  background: #e8f0fe;
+}
