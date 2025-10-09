@@ -5,11 +5,12 @@ const { Document } = require('../models');
 const { authMiddleware } = require('../auth');
 const fs = require('fs');
 const { google } = require('googleapis');
+const { PassThrough } = require('stream');
 
 // === Cargar credenciales desde Secret File de Render ===
 const credPath = '/etc/secrets/GOOGLE_CREDENTIALS.json';
 if (!fs.existsSync(credPath)) {
-  console.error('❌ Archivo de credenciales no encontrado en /etc/secrets/google-credentials.json');
+  console.error('❌ Archivo de credenciales no encontrado en /etc/secrets/GOOGLE_CREDENTIALS.json');
   process.exit(1);
 }
 
@@ -32,6 +33,10 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     const { newName } = req.body;
     const fileName = newName?.trim() || req.file.originalname;
 
+    // Convertir buffer a stream
+    const bufferStream = new PassThrough();
+    bufferStream.end(req.file.buffer);
+
     const response = await drive.files.create({
       requestBody: {
         name: fileName,
@@ -39,11 +44,11 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
       },
       media: {
         mimeType: req.file.mimetype,
-        body: Buffer.from(req.file.buffer)
+        body: bufferStream
       }
     });
 
-    // URL pública de descarga
+    // Crear permiso público
     const fileId = response.data.id;
     await drive.permissions.create({
       fileId,
@@ -52,6 +57,7 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 
     const fileUrl = `https://drive.google.com/uc?id=${fileId}&export=download`;
 
+    // Guardar registro en DB
     const file = await Document.create({
       name: fileName,
       url: fileUrl,
