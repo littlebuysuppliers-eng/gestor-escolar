@@ -213,4 +213,30 @@ async function showProfessorDocs(user) {
     e.preventDefault();
     const fileInput = document.getElementById('fileInput');
     const file = fileInput.files[0];
-    if
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(`${API}/documents/upload/${user.id}`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token },
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Archivo subido correctamente');
+        showProfessorDocs(user);
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error subiendo archivo');
+    }
+  };
+}
+
+// --- Inicializar ---
+showLogin();
