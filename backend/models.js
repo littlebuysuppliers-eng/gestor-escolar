@@ -1,36 +1,31 @@
-const path = require('path');
 const { Sequelize, DataTypes } = require('sequelize');
+const path = require('path');
 
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: path.join(__dirname, '..', '..', 'database.sqlite'),
+  storage: path.join(__dirname, 'database.sqlite'),
   logging: false
 });
 
 const User = sequelize.define('User', {
-  name: { type: DataTypes.STRING },
-  firstName: { type: DataTypes.STRING },
-  lastP: { type: DataTypes.STRING },
-  lastM: { type: DataTypes.STRING },
+  name: DataTypes.STRING,
   email: { type: DataTypes.STRING, unique: true },
-  passwordHash: { type: DataTypes.STRING },
-  role: { type: DataTypes.STRING, defaultValue: 'teacher' },
-  driveFolderId: { type: DataTypes.STRING }
+  passwordHash: DataTypes.STRING,
+  role: DataTypes.STRING,
+  driveFolderId: DataTypes.STRING
 });
 
 const Document = sequelize.define('Document', {
-  title: { type: DataTypes.STRING },
-  driveFileId: { type: DataTypes.STRING },
-  driveDownloadLink: { type: DataTypes.STRING },
-  status: { type: DataTypes.STRING, defaultValue: 'Pendiente' }
+  title: DataTypes.STRING,
+  driveFileId: DataTypes.STRING
 });
 
-User.hasMany(Document, { as: 'documents', foreignKey: 'userId' });
-Document.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(Document);
+Document.belongsTo(User);
 
 async function init() {
-  await sequelize.sync({ alter: true });
+  await sequelize.sync();
   console.log('DB synced');
 }
 
-module.exports = { init, sequelize, User, Document };
+module.exports = { init, User, Document };
