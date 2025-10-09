@@ -29,7 +29,9 @@ function renderRegister() {
     <div class="login-container">
       <div class="login-card">
         <h1 class="login-title">Registro</h1>
-        <input type="text" id="name" placeholder="Nombre completo">
+        <input type="text" id="nombre" placeholder="Nombre">
+        <input type="text" id="apellidoP" placeholder="Apellido Paterno">
+        <input type="text" id="apellidoM" placeholder="Apellido Materno">
         <input type="email" id="email" placeholder="Correo electrónico">
         <input type="password" id="password" placeholder="Contraseña">
         <select id="role">
@@ -68,17 +70,20 @@ async function handleLogin() {
 }
 
 async function handleRegister() {
-  const name = document.getElementById('name').value.trim();
+  const nombre = document.getElementById('nombre').value.trim();
+  const apellidoP = document.getElementById('apellidoP').value.trim();
+  const apellidoM = document.getElementById('apellidoM').value.trim();
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value.trim();
   const role = document.getElementById('role').value;
 
-  if (!name || !email || !password) return alert('Completa todos los campos');
+  if (!nombre || !apellidoP || !apellidoM || !email || !password)
+    return alert('Completa todos los campos');
 
   const res = await fetch(`${API_URL}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password, role })
+    body: JSON.stringify({ nombre, apellidoP, apellidoM, email, password, role })
   });
 
   const data = await res.json();
@@ -111,7 +116,7 @@ async function renderDirectorDashboard() {
 
   app.innerHTML = `
     <header class="header">
-      <h2>👨‍🏫 Director: ${currentUser.name}</h2>
+      <h2>👨‍🏫 Director: ${currentUser.nombre} ${currentUser.apellidoP} ${currentUser.apellidoM}</h2>
       <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
     </header>
     <div class="teachers-list">
@@ -121,9 +126,9 @@ async function renderDirectorDashboard() {
           t => `
         <div class="teacher-card" data-id="${t.id}">
           <div class="teacher-info">
-            <div class="avatar">${t.name.charAt(0)}</div>
+            <div class="avatar">${t.nombre.charAt(0)}</div>
             <div>
-              <p class="teacher-name">${t.name}</p>
+              <p class="teacher-name">${t.nombre} ${t.apellidoP} ${t.apellidoM}</p>
               <p class="teacher-email">${t.email}</p>
             </div>
           </div>
@@ -159,9 +164,7 @@ async function loadTeacherFiles(teacherId) {
         files.length
           ? files
               .map(
-                f => `
-            <a class="file-item" href="${f.url}" target="_blank">${f.name}</a>
-          `
+                f => `<a class="file-item" href="${f.url}" target="_blank">${f.name}</a>`
               )
               .join('')
           : '<p class="no-files">No hay archivos</p>'
@@ -176,7 +179,7 @@ async function loadTeacherFiles(teacherId) {
 async function renderTeacherDashboard() {
   app.innerHTML = `
     <header class="header">
-      <h2>👨‍🏫 ${currentUser.name}</h2>
+      <h2>👨‍🏫 ${currentUser.nombre} ${currentUser.apellidoP} ${currentUser.apellidoM}</h2>
       <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
     </header>
     <div class="upload-section">
@@ -258,5 +261,3 @@ async function checkSession() {
 }
 
 checkSession();
-
-
