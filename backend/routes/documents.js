@@ -5,7 +5,6 @@ const { Document } = require('../models');
 const { authMiddleware } = require('../auth');
 const fs = require('fs');
 const { google } = require('googleapis');
-const { PassThrough } = require('stream');
 
 // === Cargar credenciales desde Secret File de Render ===
 const credPath = '/etc/secrets/GOOGLE_CREDENTIALS.json';
@@ -25,7 +24,10 @@ const drive = google.drive({ version: 'v3', auth });
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// === Subir archivo a Google Drive ===
+// === ID de tu Shared Drive ===
+const SHARED_DRIVE_ID = process.env.GOOGLE_DRIVE_FOLDER_ID; // <- agregar en Render como variable de entorno
+
+// === Subir archivo a Google Drive (Shared Drive) ===
 router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
@@ -33,32 +35,28 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     const { newName } = req.body;
     const fileName = newName?.trim() || req.file.originalname;
 
-    // Convertir buffer a stream
-    const bufferStream = new PassThrough();
-    bufferStream.end(req.file.buffer);
-
     const response = await drive.files.create({
       requestBody: {
         name: fileName,
         mimeType: req.file.mimetype,
-        parents: ['13J6veloK9YmCaCFACxCXrrK6ZbDemZdA']
+        parents: [SHARED_DRIVE_ID] // <- Shared Drive
       },
       media: {
         mimeType: req.file.mimetype,
         body: Buffer.from(req.file.buffer)
-      }
+      },
+      supportsAllDrives: true // obligatorio para Shared Drives
     });
 
-    // Crear permiso público
-    const fileId = response.data.id;
+    // Hacer el archivo público
     await drive.permissions.create({
-      fileId,
-      requestBody: { role: 'reader', type: 'anyone' }
+      fileId: response.data.id,
+      requestBody: { role: 'reader', type: 'anyone' },
+      supportsAllDrives: true
     });
 
-    const fileUrl = `https://drive.google.com/uc?id=${fileId}&export=download`;
+    const fileUrl = `https://drive.google.com/uc?id=${response.data.id}&export=download`;
 
-    // Guardar registro en DB
     const file = await Document.create({
       name: fileName,
       url: fileUrl,
@@ -67,8 +65,8 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 
     res.json(file);
   } catch (err) {
-    console.error('Error al subir archivo:', err);
-    res.status(500).json({ error: 'Error al subir archivo' });
+    console.error('Error al subir archivo:', err.response?.data || err);
+    res.status(500).json({ error: 'Error al subir archivo', details: err.response?.data });
   }
 });
 
@@ -96,4 +94,3 @@ router.get('/:userId', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-
