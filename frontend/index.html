@@ -2,11 +2,32 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestor Escolar</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>***
-  <div id="app"></div>
-  <script src="app.js" type="module"></script>
+<body>
+  <header>
+    <h1>Gestor Escolar</h1>
+    <button id="logoutBtn">Cerrar sesión</button>
+  </header>
+
+  <!-- Panel Director -->
+  <section id="directorPanel" style="display:none;">
+    <h2>Directorio de Profesores</h2>
+    <ul id="professorsList"></ul>
+    <div id="profFiles"></div>
+  </section>
+
+  <!-- Panel Profesor -->
+  <section id="teacherPanel" style="display:none;">
+    <h2>Mis Archivos</h2>
+    <input type="file" id="fileInput">
+    <button id="uploadBtn">Subir archivo</button>
+    <ul id="myFilesList"></ul>
+  </section>
+
+  <script type="module" src="config.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
