@@ -115,3 +115,7 @@ async function deleteFile(fileId) {
     alert('Error al eliminar archivo');
   }
 }
+document.addEventListener('DOMContentLoaded', () => {
+  showLogin();
+});
+
