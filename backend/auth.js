@@ -1,85 +1,62 @@
-// backend/auth.js
-const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const { run, get } = require("./models");
-const { ensureFolder } = require("./googleDrive");
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import { open } from 'sqlite';
+import sqlite3 from 'sqlite3';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
+const SECRET_KEY = process.env.JWT_SECRET || 'clave_super_secreta';
 
-// Variables: asegúrate de definir JWT_SECRET en .env
-const JWT_SECRET = process.env.JWT_SECRET || "tu_secreto_dev";
+async function openDB() {
+  return open({ filename: './backend/database.sqlite', driver: sqlite3.Database });
+}
 
-// Registro con campos: firstName, lastP, lastM, email, password, grade, groupName
-router.post("/register", async (req, res) => {
+// Registro
+router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastP, lastM, email, password, grade, groupName } = req.body;
-    if (!firstName || !lastP || !email || !password || !grade || !groupName) {
-      return res.status(400).json({ error: "Faltan campos requeridos" });
-    }
+    const { nombres, ap_paterno, ap_materno, grado, grupo, email, password } = req.body;
+    if (!nombres || !ap_paterno || !grado || !email || !password)
+      return res.status(400).json({ message: 'Faltan datos obligatorios' });
+
+    const db = await openDB();
+    const existing = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+    if (existing) return res.status(400).json({ message: 'Usuario ya existe' });
 
     const hashed = await bcrypt.hash(password, 10);
 
-    // Guardar usuario (sin folder aún)
-    const insert = await run(
-      `INSERT INTO users (firstName, lastP, lastM, email, password, grade, groupName, role) VALUES (?,?,?,?,?,?,?,?)`,
-      [firstName, lastP, lastM || "", email, hashed, grade, groupName, "professor"]
+    // Todos los usuarios se crean con rol 'profesor'
+    await db.run(
+      `INSERT INTO users (nombres, ap_paterno, ap_materno, grado, grupo, email, password, rol)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nombres, ap_paterno, ap_materno || '', grado, grupo || '', email, hashed, 'profesor']
     );
 
-    const userId = insert.lastID;
-
-    // Crear carpeta en Drive para este usuario. Nombre: grade_group_userId_first_last
-    const folderName = `G${grade}_G${groupName}_U${userId}_${firstName}_${lastP}`;
-    const folderId = await ensureFolder(folderName);
-
-    // Actualizar usuario con driveFolderId
-    await run(`UPDATE users SET driveFolderId = ? WHERE id = ?`, [folderId, userId]);
-
-    res.json({ success: true, userId });
-  } catch (err) {
-    console.error(err);
-    if (err && err.message && err.message.includes("UNIQUE constraint failed")) {
-      return res.status(400).json({ error: "El correo ya está registrado" });
-    }
-    res.status(500).json({ error: "Error en registro" });
+    res.json({ message: 'Usuario registrado exitosamente' });
+  } catch (error) {
+    console.error('Error registro:', error);
+    res.status(500).json({ message: 'Error al registrar usuario' });
   }
 });
 
 // Login
-router.post("/login", async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await get(`SELECT * FROM users WHERE email = ?`, [email]);
-    if (!user) return res.status(400).json({ error: "Usuario no encontrado" });
+    if (!email || !password) return res.status(400).json({ message: 'Faltan datos' });
+
+    const db = await openDB();
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user) return res.status(400).json({ message: 'Usuario no encontrado' });
 
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ error: "Contraseña incorrecta" });
+    if (!match) return res.status(401).json({ message: 'Contraseña incorrecta' });
 
-    const token = jwt.sign({
-      id: user.id,
-      role: user.role,
-      firstName: user.firstName,
-      grade: user.grade,
-      groupName: user.groupName
-    }, JWT_SECRET, { expiresIn: "12h" });
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        firstName: user.firstName,
-        lastP: user.lastP,
-        lastM: user.lastM,
-        email: user.email,
-        role: user.role,
-        grade: user.grade,
-        groupName: user.groupName
-      }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error en login" });
+    const token = jwt.sign({ id: user.id, rol: user.rol }, SECRET_KEY, { expiresIn: '6h' });
+    res.json({ token, rol: user.rol, nombres: user.nombres, grado: user.grado, grupo: user.grupo });
+  } catch (error) {
+    console.error('Error login:', error);
+    res.status(500).json({ message: 'Error al iniciar sesión' });
   }
 });
 
-module.exports = router;
+export default router;
