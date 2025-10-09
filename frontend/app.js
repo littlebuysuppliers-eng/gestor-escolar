@@ -1,4 +1,4 @@
-import { API_URL } from './config.js'; // Puedes definir tu URL API aquí
+import { API_URL } from './config.js';
 
 const token = localStorage.getItem('token');
 const user = JSON.parse(localStorage.getItem('user'));
@@ -14,17 +14,15 @@ if (!token || !user) {
   window.location.href = '/';
 }
 
-// === Panel Director ===
+// Mostrar panel según rol
 if (user.role === 'director') {
   document.getElementById('directorPanel').style.display = 'block';
   loadProfessors();
 }
 
-// === Panel Profesor ===
 if (user.role === 'teacher') {
   document.getElementById('teacherPanel').style.display = 'block';
   loadMyFiles();
-
   document.getElementById('uploadBtn').addEventListener('click', uploadFile);
 }
 
@@ -42,24 +40,22 @@ async function loadProfessors() {
     const li = document.createElement('li');
     li.textContent = t.name;
     li.style.cursor = 'pointer';
-    li.onclick = () => loadTeacherFiles(t.id);
+    li.onclick = () => loadTeacherFiles(t.id, t.name);
     ul.appendChild(li);
   });
 }
 
-async function loadTeacherFiles(teacherId) {
+async function loadTeacherFiles(teacherId, teacherName) {
   const res = await fetch(`${API_URL}/documents/user/${teacherId}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
   const files = await res.json();
   const container = document.getElementById('profFiles');
-  container.innerHTML = `<h3>Archivos de ${teacherId}</h3>`;
+  container.innerHTML = `<h3>Archivos de ${teacherName}</h3>`;
 
   files.forEach(f => {
     const div = document.createElement('div');
-    div.innerHTML = `
-      ${f.title} - <a href="${f.url}" target="_blank">Descargar</a>
-    `;
+    div.innerHTML = `${f.title} - <a href="${f.url}" target="_blank">Descargar</a>`;
     container.appendChild(div);
   });
 }
@@ -90,6 +86,8 @@ async function uploadFile() {
   const file = fileInput.files[0];
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('userId', user.id);
+  formData.append('userName', user.name);
 
   const res = await fetch(`${API_URL}/documents/upload`, {
     method: 'POST',
