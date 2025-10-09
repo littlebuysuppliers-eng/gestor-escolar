@@ -1,63 +1,58 @@
-import { google } from 'googleapis';
-import dotenv from 'dotenv';
-dotenv.config();
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const { User, Document } = require('../models');
+const { createFolder, uploadFile, deleteFile } = require('../googleDrive');
 
-const SCOPES = ['https://www.googleapis.com/auth/drive'];
-const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
-  scopes: SCOPES
-});
-const drive = google.drive({ version: 'v3', auth });
-
-export const MAIN_FOLDER_ID = process.env.DRIVE_ROOT_FOLDER_ID;
-
-// Crear carpeta si no existe
-export async function ensureFolder(name, parentId) {
-  // Buscar carpeta existente
-  const res = await drive.files.list({
-    q: `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId || MAIN_FOLDER_ID}' in parents and trashed=false`,
-    fields: 'files(id, name)'
-  });
-  if (res.data.files.length > 0) return res.data.files[0].id;
-
-  // Crear carpeta
-  const folderMetadata = {
-    name,
-    mimeType: 'application/vnd.google-apps.folder',
-    parents: parentId ? [parentId] : [MAIN_FOLDER_ID]
-  };
-  const folder = await drive.files.create({ resource: folderMetadata, fields: 'id' });
-  return folder.data.id;
-}
+// Config multer
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Subir archivo
-export async function uploadFile(fileName, folderId, fileBuffer) {
-  const res = await drive.files.create({
-    requestBody: {
-      name: fileName,
-      parents: [folderId]
-    },
-    media: {
-      mimeType: 'application/octet-stream',
-      body: Buffer.from(fileBuffer)
-    },
-    fields: 'id'
-  });
+router.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(400).json({ error: 'Usuario no encontrado' });
 
-  // Construir link de descarga
-  const downloadLink = `https://drive.google.com/uc?id=${res.data.id}&export=download`;
-  return { id: res.data.id, downloadLink };
-}
+    // Crear carpeta por profesor si no existe
+    let folderId = user.driveFolderId;
+    if (!folderId) {
+      folderId = await createFolder(user.name);
+      user.driveFolderId = folderId;
+      await user.save();
+    }
 
-// Renombrar archivo
-export async function renameFile(fileId, newTitle) {
-  await drive.files.update({
-    fileId,
-    requestBody: { name: newTitle }
-  });
-}
+    const fileId = await uploadFile(req.file.originalname, folderId, req.file.buffer);
+    await Document.create({ userId, title: req.file.originalname, driveFileId: fileId });
+
+    res.json({ message: 'Archivo subido', fileId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al subir archivo' });
+  }
+});
+
+// Listar archivos de un profesor
+router.get('/user/:id', async (req, res) => {
+  const docs = await Document.findAll({ where: { userId: req.params.id } });
+  res.json(docs);
+});
 
 // Eliminar archivo
-export async function deleteFile(fileId) {
-  await drive.files.delete({ fileId });
-}
+router.delete('/:id', async (req, res) => {
+  try {
+    const doc = await Document.findByPk(req.params.id);
+    if (!doc) return res.status(400).json({ error: 'Archivo no encontrado' });
+
+    if (doc.driveFileId) await deleteFile(doc.driveFileId);
+    await doc.destroy();
+
+    res.json({ message: 'Archivo eliminado' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al eliminar archivo' });
+  }
+});
+
+module.exports = router;
