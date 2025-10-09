@@ -40,11 +40,12 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     const response = await drive.files.create({
       requestBody: {
         name: fileName,
-        mimeType: req.file.mimetype
+        mimeType: req.file.mimetype,
+        parents: ['13J6veloK9YmCaCFACxCXrrK6ZbDemZdA']
       },
       media: {
         mimeType: req.file.mimetype,
-        body: bufferStream
+        body: Buffer.from(req.file.buffer)
       }
     });
 
@@ -95,3 +96,4 @@ router.get('/:userId', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+
