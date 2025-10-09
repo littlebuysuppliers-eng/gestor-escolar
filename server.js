@@ -38,39 +38,35 @@ async function start() {
   // Crear director demo si no existe
   const d = await User.findOne({ where: { role: 'director' } });
   if (!d) {
-    const hash = await bcrypt.hash('directorpass', 10);
+    const hash = await bcrypt.hash('1234', 10);
     await User.create({
       name: 'Director Demo',
-      email: 'director@school.test',
+      firstName: 'Director',
+      lastP: 'Demo',
+      lastM: '',
+      email: 'director@demo.com',
       passwordHash: hash,
       role: 'director',
-      firstName: 'Director',
-      lastP: '',
-      lastM: '',
-      grade: 0,
-      groupName: 'A',
       driveFolderId: null
     });
-    console.log('✅ Director creado: director@school.test / directorpass');
+    console.log('✅ Director creado: director@demo.com / 1234');
   }
 
   // Crear profesor demo si no existe
   const t = await User.findOne({ where: { role: 'teacher' } });
   if (!t) {
-    const hash = await bcrypt.hash('teacherpass', 10);
+    const hash = await bcrypt.hash('1234', 10);
     await User.create({
       name: 'Profesor Demo',
-      email: 'teacher@school.test',
+      firstName: 'Profesor',
+      lastP: 'Demo',
+      lastM: '',
+      email: 'profesor@demo.com',
       passwordHash: hash,
       role: 'teacher',
-      firstName: 'Profesor',
-      lastP: '',
-      lastM: '',
-      grade: 1,
-      groupName: 'A',
       driveFolderId: null
     });
-    console.log('✅ Profesor creado: teacher@school.test / teacherpass');
+    console.log('✅ Profesor creado: profesor@demo.com / 1234');
   }
 
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

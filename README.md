@@ -1,7 +1,10 @@
-Proyecto GestorEscolar - versión exportada
+GestorEscolar - versión final empaquetada
 
 Instrucciones:
-- Coloca las credenciales Google en la variable de entorno GOOGLE_SERVICE_ACCOUNT (contenido JSON)
-- Define JWT_SECRET en .env
-- Ejecuta npm install
-- Ejecuta npm start
+1) Crear variables de entorno en Render: GOOGLE_SERVICE_ACCOUNT (contenido JSON), DRIVE_ROOT_FOLDER_ID (opcional), JWT_SECRET
+2) npm install
+3) npm start
+
+Demo users:
+- director@demo.com / 1234
+- profesor@demo.com / 1234

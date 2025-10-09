@@ -15,8 +15,6 @@ const User = sequelize.define('User', {
   email: { type: DataTypes.STRING, unique: true },
   passwordHash: { type: DataTypes.STRING },
   role: { type: DataTypes.STRING, defaultValue: 'teacher' },
-  grade: { type: DataTypes.INTEGER },
-  groupName: { type: DataTypes.STRING },
   driveFolderId: { type: DataTypes.STRING }
 });
 
