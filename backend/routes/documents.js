@@ -9,25 +9,28 @@ const { google } = require('googleapis');
 // === Cargar credenciales desde Secret File de Render ===
 const credPath = '/etc/secrets/GOOGLE_CREDENTIALS.json';
 if (!fs.existsSync(credPath)) {
-  console.error('❌ Archivo de credenciales no encontrado');
+  console.error('❌ Archivo de credenciales no encontrado en /etc/secrets/GOOGLE_CREDENTIALS.json');
   process.exit(1);
 }
 
 const credentials = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+
+// === Inicializar Google Drive API (forma moderna, sin warnings) ===
 const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ['https://www.googleapis.com/auth/drive'],
+  scopes: ['https://www.googleapis.com/auth/drive.file'],
 });
-const drive = google.drive({ version: 'v3', auth });
+auth.fromJSON(credentials);
 
-// ID de Shared Drive (obtenlo desde Google Drive)
-const SHARED_DRIVE_ID = process.env.GOOGLE_SHARED_DRIVE_ID;
+const drive = google.drive({
+  version: 'v3',
+  auth,
+});
 
-// === Multer en memoria ===
+// === Configurar Multer (memoria, no disco) ===
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// === Subir archivo a Shared Drive ===
+// === Subir archivo a Google Drive ===
 router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
@@ -35,25 +38,28 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     const { newName } = req.body;
     const fileName = newName?.trim() || req.file.originalname;
 
+    const fileMetadata = {
+      name: fileName,
+      parents: [process.env.GOOGLE_DRIVE_FOLDER_ID], // Puedes definir un folder específico
+    };
+
+    const media = {
+      mimeType: req.file.mimetype,
+      body: Buffer.from(req.file.buffer),
+    };
+
     const response = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        mimeType: req.file.mimetype,
-        parents: [SHARED_DRIVE_ID]
-      },
-      media: {
-        mimeType: req.file.mimetype,
-        body: Buffer.from(req.file.buffer)
-      },
-      supportsAllDrives: true
+      requestBody: fileMetadata,
+      media,
+      fields: 'id',
     });
 
     const fileId = response.data.id;
 
+    // Dar acceso público al archivo
     await drive.permissions.create({
       fileId,
       requestBody: { role: 'reader', type: 'anyone' },
-      supportsAllDrives: true
     });
 
     const fileUrl = `https://drive.google.com/uc?id=${fileId}&export=download`;
@@ -61,13 +67,13 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
     const file = await Document.create({
       name: fileName,
       url: fileUrl,
-      userId: req.user.id
+      userId: req.user.id,
     });
 
     res.json(file);
   } catch (err) {
-    console.error('Error al subir archivo:', err.message || err);
-    res.status(500).json({ error: 'Error al subir archivo', details: err.errors || err });
+    console.error('❌ Error al subir archivo:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Error al subir archivo' });
   }
 });
 
@@ -77,19 +83,19 @@ router.get('/me', authMiddleware, async (req, res) => {
     const files = await Document.findAll({ where: { userId: req.user.id } });
     res.json(files);
   } catch (err) {
-    console.error(err);
+    console.error('Error al obtener archivos:', err);
     res.status(500).json({ error: 'Error al obtener archivos' });
   }
 });
 
-// === Listar archivos de un usuario (solo director) ===
+// === Listar archivos de un profesor (solo director) ===
 router.get('/:userId', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Acceso denegado' });
     const files = await Document.findAll({ where: { userId: req.params.userId } });
     res.json(files);
   } catch (err) {
-    console.error(err);
+    console.error('Error al obtener archivos del profesor:', err);
     res.status(500).json({ error: 'Error al obtener archivos del profesor' });
   }
 });
