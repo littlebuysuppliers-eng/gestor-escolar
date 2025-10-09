@@ -9,7 +9,7 @@ const { authMiddleware } = require('../auth');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // === Configuración Google Drive ===
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
 const drive = google.drive({
   version: 'v3',
   auth: new google.auth.GoogleAuth({
@@ -18,7 +18,7 @@ const drive = google.drive({
   })
 });
 
-const FOLDER_ID = process.env.GDRIVE_FOLDER_ID; // agrega en Render el ID de tu carpeta
+const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID; // agrega en Render el ID de tu carpeta
 
 // === Subir archivo a Google Drive ===
 router.post('/upload', authMiddleware, upload.single('file'), async (req, res) => {
@@ -58,3 +58,4 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req, res) =
 });
 
 module.exports = router;
+
